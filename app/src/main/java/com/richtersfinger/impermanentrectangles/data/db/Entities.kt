@@ -7,6 +7,12 @@ import androidx.room.PrimaryKey
 import androidx.room.Relation
 import java.util.UUID
 
+@Entity(tableName = "metadata")
+data class MetadataEntity(
+    @PrimaryKey val key: String,
+    val value: String
+)
+
 @Entity(tableName = "item_lists")
 data class ItemListEntity(
     @PrimaryKey val id: String = UUID.randomUUID().toString(),

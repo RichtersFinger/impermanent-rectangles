@@ -7,12 +7,13 @@ import androidx.room.RoomDatabase
 
 @Database(
     entities = [
+        MetadataEntity::class,
         ItemListEntity::class,
         ItemEntity::class,
         HistoryEntryEntity::class,
         HistoryValueEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -27,11 +28,22 @@ abstract class AppDatabase : RoomDatabase() {
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
-                    "app_database"
-                ).build()
+                    DATABASE_NAME
+                )
+                    .fallbackToDestructiveMigration()
+                    .build()
                 INSTANCE = instance
                 instance
             }
         }
+
+        fun closeDatabase() {
+            synchronized(this) {
+                INSTANCE?.close()
+                INSTANCE = null
+            }
+        }
+
+        const val DATABASE_NAME = "app_database"
     }
 }

@@ -1,12 +1,65 @@
 package com.richtersfinger.impermanentrectangles.data.repository
 
+import android.content.Context
+import android.net.Uri
+import com.richtersfinger.impermanentrectangles.BuildConfig
 import com.richtersfinger.impermanentrectangles.Item
 import com.richtersfinger.impermanentrectangles.ItemList
 import com.richtersfinger.impermanentrectangles.data.db.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
 
-class AppRepository(private val appDao: AppDao) {
+class AppRepository(private val appDao: AppDao, private val context: Context) {
+
+    suspend fun ensureAppVersion() {
+        appDao.setMetadata("versionCode", BuildConfig.VERSION_CODE.toString())
+        appDao.setMetadata("versionName", BuildConfig.VERSION_NAME)
+    }
+
+    suspend fun exportDatabase(uri: Uri) = withContext(Dispatchers.IO) {
+        val dbFile = context.getDatabasePath(AppDatabase.DATABASE_NAME)
+        // Ensure WAL is checkpointed
+        appDao.checkpoint()
+        
+        context.contentResolver.openOutputStream(uri)?.use { output ->
+            FileInputStream(dbFile).use { input ->
+                input.copyTo(output)
+            }
+        }
+    }
+
+    suspend fun importDatabase(uri: Uri) = withContext(Dispatchers.IO) {
+        android.util.Log.d("AppRepository", "Starting import from $uri")
+        // Close database before replacement to avoid issues
+        AppDatabase.closeDatabase()
+
+        val dbFile = context.getDatabasePath(AppDatabase.DATABASE_NAME)
+        val shmFile = File(dbFile.path + "-shm")
+        val walFile = File(dbFile.path + "-wal")
+
+        android.util.Log.d("AppRepository", "Replacing database file: ${dbFile.path}")
+        context.contentResolver.openInputStream(uri)?.use { input ->
+            FileOutputStream(dbFile).use { output ->
+                input.copyTo(output)
+            }
+        }
+        
+        // Delete WAL/SHM files to ensure consistency
+        if (shmFile.exists()) {
+            android.util.Log.d("AppRepository", "Deleting SHM file")
+            shmFile.delete()
+        }
+        if (walFile.exists()) {
+            android.util.Log.d("AppRepository", "Deleting WAL file")
+            walFile.delete()
+        }
+        android.util.Log.d("AppRepository", "Import finished")
+    }
 
     fun getAllLists(): Flow<List<ItemList>> {
         return appDao.getAllLists().map { listEntities ->

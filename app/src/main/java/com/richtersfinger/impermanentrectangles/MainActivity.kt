@@ -56,6 +56,13 @@ import com.richtersfinger.impermanentrectangles.ui.viewmodel.MainViewModelFactor
 import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.res.stringResource
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalContext
 import com.richtersfinger.impermanentrectangles.ui.components.AboutDialog
 import com.richtersfinger.impermanentrectangles.ui.components.AddItemDialog
 import com.richtersfinger.impermanentrectangles.ui.components.AddListDialog
@@ -96,6 +103,12 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
@@ -104,7 +117,7 @@ fun MainScreen(
             AppRepository(
                 AppDatabase.getDatabase(
                     androidx.compose.ui.platform.LocalContext.current
-                ).appDao()
+                ).appDao(), androidx.compose.ui.platform.LocalContext.current
             )
         )
     )
@@ -130,116 +143,120 @@ fun MainScreen(
     var showListSelectionMenu by remember { mutableStateOf(false) }
     var showContextMenu by remember { mutableStateOf(false) }
 
+    val exportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/octet-stream"), onResult = { uri ->
+            uri?.let { viewModel.exportDatabase(it) }
+        })
+
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(), onResult = { uri ->
+            uri?.let { viewModel.importDatabase(it) }
+        })
+
+    val context = LocalContext.current
+    val activity = context.findActivity()
+
+    fun handleImportComplete() {
+        activity?.let {
+            val intent = activity.intent
+            activity.finish()
+            activity.startActivity(intent)
+        }
+    }
+
+    LaunchedEffect(viewModel) {
+        viewModel.onImportComplete.collect {
+            handleImportComplete()
+            viewModel.resetImportComplete()
+        }
+    }
+
     // Reorder state
     var draggingItemIndex by remember { mutableStateOf<Int?>(null) }
     var dragOffset by remember { mutableFloatStateOf(0f) }
     val lazyListState = rememberLazyListState()
 
     Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        topBar = {
-            TopAppBar(
-                navigationIcon = {
-                    IconButton(onClick = { showAboutDialog = true }) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_logo),
-                            contentDescription = "About",
-                            modifier = Modifier.size(32.dp),
-                            tint = Color.Unspecified
-                        )
-                    }
-                },
-                title = {
-                    if (lists.isNotEmpty()) {
-                        Box {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.clickable { showListSelectionMenu = true }
-                            ) {
-                                Text(currentList?.name ?: "No List Selected")
-                                Icon(Icons.Default.ArrowDropDown, contentDescription = "Select List")
-                            }
-                            DropdownMenu(
-                                expanded = showListSelectionMenu,
-                                onDismissRequest = { showListSelectionMenu = false }
-                            ) {
-                                lists.forEachIndexed { index, itemList ->
-                                    DropdownMenuItem(
-                                        text = { Text(itemList.name) },
-                                        onClick = {
-                                            viewModel.selectList(index)
-                                            showListSelectionMenu = false
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    } else {
-                        Text(stringResource(id = R.string.app_name))
-                    }
-                },
-                actions = {
-                    if (currentList != null) {
-                        IconButton(onClick = { viewModel.toggleReorderMode() }) {
-                            Icon(
-                                if (isReorderMode) Icons.Default.Done else Icons.Default.List,
-                                contentDescription = if (isReorderMode) "Exit Reorder Mode" else "Enter Reorder Mode"
-                            )
-                        }
-                    }
+        modifier = Modifier.fillMaxSize(), topBar = {
+            TopAppBar(navigationIcon = {
+                IconButton(onClick = { showAboutDialog = true }) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_logo),
+                        contentDescription = "About",
+                        modifier = Modifier.size(32.dp),
+                        tint = Color.Unspecified
+                    )
+                }
+            }, title = {
+                if (lists.isNotEmpty()) {
                     Box {
-                        IconButton(onClick = { showContextMenu = true }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = "List Options")
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.clickable { showListSelectionMenu = true }) {
+                            Text(currentList?.name ?: "No List Selected")
+                            Icon(Icons.Default.ArrowDropDown, contentDescription = "Select List")
                         }
                         DropdownMenu(
-                            expanded = showContextMenu,
-                            onDismissRequest = { showContextMenu = false }
-                        ) {
-                            currentList?.let {
-                                DropdownMenuItem(
-                                    text = { Text("Show info") },
-                                    onClick = {
-                                        showContextMenu = false
-                                        showListInfoDialog = true
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("New iteration") },
-                                    onClick = {
-                                        showContextMenu = false
-                                        listForNewIteration = it
-                                    }
-                                )
-                            }
-                            DropdownMenuItem(
-                                text = { Text("Add a new list") },
-                                onClick = {
-                                    showContextMenu = false
-                                    showAddListDialog = true
-                                }
-                            )
-                            currentList?.let {
-                                DropdownMenuItem(
-                                    text = { Text("Edit current list") },
-                                    onClick = {
-                                        showContextMenu = false
-                                        listToEdit = it
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Delete current list") },
-                                    onClick = {
-                                        showContextMenu = false
-                                        listToDelete = it
-                                    }
-                                )
+                            expanded = showListSelectionMenu, onDismissRequest = { showListSelectionMenu = false }) {
+                            lists.forEachIndexed { index, itemList ->
+                                DropdownMenuItem(text = { Text(itemList.name) }, onClick = {
+                                    viewModel.selectList(index)
+                                    showListSelectionMenu = false
+                                })
                             }
                         }
                     }
+                } else {
+                    Text(stringResource(id = R.string.app_name))
                 }
-            )
-        },
-        floatingActionButton = {
+            }, actions = {
+                if (currentList != null) {
+                    IconButton(onClick = { viewModel.toggleReorderMode() }) {
+                        Icon(
+                            if (isReorderMode) Icons.Default.Done else Icons.Default.List,
+                            contentDescription = if (isReorderMode) "Exit Reorder Mode" else "Enter Reorder Mode"
+                        )
+                    }
+                }
+                Box {
+                    IconButton(onClick = { showContextMenu = true }) {
+                        Icon(Icons.Default.MoreVert, contentDescription = "List Options")
+                    }
+                    DropdownMenu(
+                        expanded = showContextMenu, onDismissRequest = { showContextMenu = false }) {
+                        currentList?.let {
+                            DropdownMenuItem(text = { Text("Show info") }, onClick = {
+                                showContextMenu = false
+                                showListInfoDialog = true
+                            })
+                            DropdownMenuItem(text = { Text("New iteration") }, onClick = {
+                                showContextMenu = false
+                                listForNewIteration = it
+                            })
+                        }
+                        DropdownMenuItem(text = { Text("Add a new list") }, onClick = {
+                            showContextMenu = false
+                            showAddListDialog = true
+                        })
+                        currentList?.let {
+                            DropdownMenuItem(text = { Text("Edit current list") }, onClick = {
+                                showContextMenu = false
+                                listToEdit = it
+                            })
+                            DropdownMenuItem(text = { Text("Delete current list") }, onClick = {
+                                showContextMenu = false
+                                listToDelete = it
+                            })
+                        }
+                        HorizontalDivider()
+                        DropdownMenuItem(text = { Text("Export database") }, onClick = {
+                            showContextMenu = false
+                            exportLauncher.launch("impermanent_rectangles.db")
+                        })
+                    }
+                }
+            })
+        }, floatingActionButton = {
             if (currentList != null && !isReorderMode) {
                 FloatingActionButton(
                     onClick = { showAddDialog = true },
@@ -250,18 +267,14 @@ fun MainScreen(
                     Icon(Icons.Default.Add, contentDescription = "Add Item")
                 }
             }
-        },
-        floatingActionButtonPosition = androidx.compose.material3.FabPosition.Start
+        }, floatingActionButtonPosition = androidx.compose.material3.FabPosition.Start
     ) { innerPadding ->
         Column(
-            modifier = Modifier
-                .padding(innerPadding)
-                .fillMaxSize()
+            modifier = Modifier.padding(innerPadding).fillMaxSize()
         ) {
             if (lists.isEmpty()) {
                 Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
+                    modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("No lists found", style = MaterialTheme.typography.headlineSmall)
@@ -269,12 +282,21 @@ fun MainScreen(
                         Button(onClick = { showAddListDialog = true }) {
                             Text("Create your first list")
                         }
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Text(
+                            "Already have data?",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        androidx.compose.material3.TextButton(
+                            onClick = { importLauncher.launch(arrayOf("*/*")) }) {
+                            Text("Import data")
+                        }
                     }
                 }
             } else if (items.isEmpty()) {
                 Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
+                    modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("This list is empty", style = MaterialTheme.typography.headlineSmall)
@@ -286,8 +308,7 @@ fun MainScreen(
                 }
             } else {
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    state = lazyListState
+                    modifier = Modifier.fillMaxSize(), state = lazyListState
                 ) {
                     items(items, key = { it.id }) { item ->
                         val index = items.indexOfFirst { it.id == item.id }
@@ -339,8 +360,7 @@ fun MainScreen(
                                         val updatedValue = (item.currentValue + delta).coerceAtLeast(0)
                                         viewModel.updateItem(list.id, item.copy(currentValue = updatedValue))
                                     }
-                                }
-                            )
+                                })
                         }
                         HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
                     }
@@ -359,26 +379,20 @@ fun MainScreen(
             val versionCode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
                 packageInfo?.longVersionCode?.toInt() ?: 0
             } else {
-                @Suppress("DEPRECATION")
-                packageInfo?.versionCode ?: 0
+                @Suppress("DEPRECATION") packageInfo?.versionCode ?: 0
             }
             AboutDialog(
-                onDismiss = { showAboutDialog = false },
-                versionName = versionName,
-                versionCode = versionCode
+                onDismiss = { showAboutDialog = false }, versionName = versionName, versionCode = versionCode
             )
         }
 
         if (showAddDialog) {
-            AddItemDialog(
-                onDismiss = { showAddDialog = false },
-                onConfirm = { title, description, targetValue ->
-                    currentList?.let { list ->
-                        viewModel.addItem(list.id, title, description, targetValue)
-                    }
-                    showAddDialog = false
+            AddItemDialog(onDismiss = { showAddDialog = false }, onConfirm = { title, description, targetValue ->
+                currentList?.let { list ->
+                    viewModel.addItem(list.id, title, description, targetValue)
                 }
-            )
+                showAddDialog = false
+            })
         }
 
         itemToEdit?.let { item ->
@@ -390,34 +404,25 @@ fun MainScreen(
                 onConfirm = { title, description, targetValue ->
                     currentList?.let { list ->
                         viewModel.updateItem(
-                            list.id,
-                            item.copy(title = title, description = description, targetValue = targetValue)
+                            list.id, item.copy(title = title, description = description, targetValue = targetValue)
                         )
                     }
                     itemToEdit = null
-                }
-            )
+                })
         }
 
         itemToDelete?.let { item ->
-            DeleteConfirmationDialog(
-                item = item,
-                onDismiss = { itemToDelete = null },
-                onConfirm = {
-                    viewModel.deleteItem(item.id)
-                    itemToDelete = null
-                }
-            )
+            DeleteConfirmationDialog(item = item, onDismiss = { itemToDelete = null }, onConfirm = {
+                viewModel.deleteItem(item.id)
+                itemToDelete = null
+            })
         }
 
         if (showAddListDialog) {
-            AddListDialog(
-                onDismiss = { showAddListDialog = false },
-                onConfirm = { name, description ->
-                    viewModel.addList(name, description)
-                    showAddListDialog = false
-                }
-            )
+            AddListDialog(onDismiss = { showAddListDialog = false }, onConfirm = { name, description ->
+                viewModel.addList(name, description)
+                showAddListDialog = false
+            })
         }
 
         listToEdit?.let { list ->
@@ -428,29 +433,21 @@ fun MainScreen(
                 onConfirm = { newName, newDescription ->
                     viewModel.updateList(list.copy(name = newName, description = newDescription))
                     listToEdit = null
-                }
-            )
+                })
         }
 
         if (showListInfoDialog) {
             currentList?.let { list ->
                 ListInfoDialog(
-                    itemList = list,
-                    totalIterations = currentHistory.size,
-                    onDismiss = { showListInfoDialog = false }
-                )
+                    itemList = list, totalIterations = currentHistory.size, onDismiss = { showListInfoDialog = false })
             }
         }
 
         listToDelete?.let { list ->
-            DeleteListConfirmationDialog(
-                listName = list.name,
-                onDismiss = { listToDelete = null },
-                onConfirm = {
-                    viewModel.deleteList(list)
-                    listToDelete = null
-                }
-            )
+            DeleteListConfirmationDialog(listName = list.name, onDismiss = { listToDelete = null }, onConfirm = {
+                viewModel.deleteList(list)
+                listToDelete = null
+            })
         }
 
         listForNewIteration?.let { list ->
@@ -460,8 +457,7 @@ fun MainScreen(
                 onConfirm = {
                     viewModel.startNewIteration(list.id, items)
                     listForNewIteration = null
-                }
-            )
+                })
         }
     }
 }

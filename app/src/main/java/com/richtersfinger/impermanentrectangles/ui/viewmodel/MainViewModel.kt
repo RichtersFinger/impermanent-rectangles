@@ -1,5 +1,6 @@
 package com.richtersfinger.impermanentrectangles.ui.viewmodel
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -12,6 +13,12 @@ import kotlinx.coroutines.launch
 
 class MainViewModel(private val repository: AppRepository) : ViewModel() {
 
+    init {
+        viewModelScope.launch {
+            repository.ensureAppVersion()
+        }
+    }
+
     val allLists: StateFlow<List<ItemList>> = repository.getAllLists()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -20,6 +27,28 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
 
     private val _isReorderMode = MutableStateFlow(false)
     val isReorderMode: StateFlow<Boolean> = _isReorderMode.asStateFlow()
+
+    private val _onImportComplete = MutableSharedFlow<Unit>(replay = 1)
+    val onImportComplete: SharedFlow<Unit> = _onImportComplete.asSharedFlow()
+
+    fun exportDatabase(uri: Uri) {
+        viewModelScope.launch {
+            repository.exportDatabase(uri)
+        }
+    }
+
+    fun importDatabase(uri: Uri) {
+        viewModelScope.launch {
+            android.util.Log.d("MainViewModel", "Importing database from $uri")
+            repository.importDatabase(uri)
+            android.util.Log.d("MainViewModel", "Import database finished, emitting onImportComplete")
+            _onImportComplete.emit(Unit)
+        }
+    }
+
+    fun resetImportComplete() {
+        _onImportComplete.resetReplayCache()
+    }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val currentList: StateFlow<ItemList?> = combine(allLists, _selectedListIndex) { lists, index ->
