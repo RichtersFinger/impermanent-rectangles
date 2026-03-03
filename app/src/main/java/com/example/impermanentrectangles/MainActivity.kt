@@ -22,7 +22,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.graphics.drawscope.rotate;
 import androidx.compose.foundation.clickable
@@ -99,6 +98,7 @@ import com.example.impermanentrectangles.ui.components.DeleteConfirmationDialog
 import com.example.impermanentrectangles.ui.components.DeleteListConfirmationDialog
 import com.example.impermanentrectangles.ui.components.ListInfoDialog
 import com.example.impermanentrectangles.ui.components.NewIterationConfirmationDialog
+import com.example.impermanentrectangles.ui.theme.progressToColor
 import java.util.UUID
 
 data class Item(
@@ -145,7 +145,6 @@ fun MainScreen(
     )
 ) {
     val lists by viewModel.allLists.collectAsStateWithLifecycle()
-    val selectedListIndex by viewModel.selectedListIndex.collectAsStateWithLifecycle()
     val currentList by viewModel.currentList.collectAsStateWithLifecycle()
     val items by viewModel.currentItems.collectAsStateWithLifecycle()
     val currentHistory by viewModel.currentHistory.collectAsStateWithLifecycle()
@@ -499,20 +498,6 @@ fun MainScreen(
                 }
             )
         }
-    }
-}
-
-private fun progressToColor(progress: Float): Color {
-    val p = progress.coerceIn(0f, 2f)
-    val red = Color(0xFFF44336)
-    val amber = Color(0xFFFFC107)
-    val green = Color(0xFF4CAF50)
-    val overComplete = Color(0xFF00BCD4)
-
-    return when {
-        p < 0.5f -> lerp(red, amber, p / 0.5f)                  // 0.0..0.5
-        p < 1.0f -> lerp(amber, green, (p - 0.5f) / 0.5f)       // 0.5..1.0
-        else -> lerp(green, overComplete, (p - 1.0f) / 1.0f)            // 1.0..2.0
     }
 }
 
