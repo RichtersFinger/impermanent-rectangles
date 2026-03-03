@@ -22,11 +22,16 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-class MainViewModel(private val repository: AppRepository) : ViewModel() {
+class MainViewModel(
+    private val repository: AppRepository,
+    initializeAppVersion: Boolean = true
+) : ViewModel() {
 
     init {
-        viewModelScope.launch {
-            repository.ensureAppVersion()
+        if (initializeAppVersion) {
+            viewModelScope.launch {
+                repository.ensureAppVersion()
+            }
         }
     }
 
