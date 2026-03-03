@@ -6,6 +6,12 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleOut
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
@@ -207,127 +213,145 @@ fun ListItem(
     var offsetX by remember { mutableFloatStateOf(0f) }
     val threshold = 150f
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .pointerInput(Unit) {
-                detectHorizontalDragGestures(
-                    onDragEnd = {
-                        if (offsetX > threshold) {
-                            onUpdateValue(+1)
-                        } else if (offsetX < -threshold) {
-                            onUpdateValue(-1)
+    Box(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .pointerInput(Unit) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            if (offsetX > threshold) {
+                                onUpdateValue(+1)
+                            } else if (offsetX < -threshold) {
+                                onUpdateValue(-1)
+                            }
+                            offsetX = 0f
+                        },
+                        onHorizontalDrag = { change, dragAmount ->
+                            change.consume()
+                            offsetX += dragAmount
                         }
-                        offsetX = 0f
-                    },
-                    onHorizontalDrag = { change, dragAmount ->
-                        change.consume()
-                        offsetX += dragAmount
-                    }
-                )
-            }
-            .offset { IntOffset(offsetX.roundToInt(), 0) }
-            .clickable { onToggleExpand() }
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = item.title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            val rawProgress = if (item.targetValue > 0) {
-                item.currentValue.toFloat() / item.targetValue
-            } else {
-                0f
-            }
-            val barProgress = rawProgress.coerceIn(0f, 1f)
-
-            val animatedProgress by animateFloatAsState(
-                targetValue = barProgress,
-                label = "progressAnimation"
-            )
-            val progressColor by animateColorAsState(
-                targetValue = progressToColor(rawProgress),
-                label = "colorAnimation"
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(24.dp)
-                    .clip(RoundedCornerShape(12.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                LinearProgressIndicator(
-                    progress = { animatedProgress },
-                    modifier = Modifier.fillMaxSize(),
-                    color = progressColor,
-                    trackColor = progressColor.copy(alpha = 0.2f),
-                    gapSize = 0.dp,
-                    strokeCap = StrokeCap.Butt,
-                    drawStopIndicator = {}
-                )
+                    )
+                }
+                .offset { IntOffset(offsetX.roundToInt(), 0) }
+                .clickable { onToggleExpand() }
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "${item.currentValue} / ${item.targetValue}",
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.78f))
-                        .padding(horizontal = 8.dp, vertical = 2.dp)
+                    text = item.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
                 )
-            }
-            if (isExpanded) {
                 Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = if (item.description.isNotBlank()) item.description else "No description provided",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (item.description.isNotBlank()) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline
+                val rawProgress = if (item.targetValue > 0) {
+                    item.currentValue.toFloat() / item.targetValue
+                } else {
+                    0f
+                }
+                val barProgress = rawProgress.coerceIn(0f, 1f)
+
+                val animatedProgress by animateFloatAsState(
+                    targetValue = barProgress,
+                    label = "progressAnimation"
                 )
+                val progressColor by animateColorAsState(
+                    targetValue = progressToColor(rawProgress),
+                    label = "colorAnimation"
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(24.dp)
+                        .clip(RoundedCornerShape(12.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    LinearProgressIndicator(
+                        progress = { animatedProgress },
+                        modifier = Modifier.fillMaxSize(),
+                        color = progressColor,
+                        trackColor = progressColor.copy(alpha = 0.2f),
+                        gapSize = 0.dp,
+                        strokeCap = StrokeCap.Butt,
+                        drawStopIndicator = {}
+                    )
+                    Text(
+                        text = "${item.currentValue} / ${item.targetValue}",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.78f))
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                    )
+                }
+                if (isExpanded) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = if (item.description.isNotBlank()) item.description else "No description provided",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (item.description.isNotBlank()) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline
+                    )
+                }
+            }
+            Box {
+                IconButton(onClick = { showMenu = true }) {
+                    Icon(
+                        imageVector = Icons.Default.MoreVert,
+                        contentDescription = "More Options"
+                    )
+                }
+                DropdownMenu(
+                    expanded = showMenu,
+                    onDismissRequest = { showMenu = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Edit") },
+                        onClick = {
+                            showMenu = false
+                            onEditClick()
+                        },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Edit,
+                                contentDescription = null
+                            )
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Remove") },
+                        onClick = {
+                            showMenu = false
+                            onDeleteClick()
+                        },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    )
+                }
             }
         }
-        Box {
-            IconButton(onClick = { showMenu = true }) {
-                Icon(
-                    imageVector = Icons.Default.MoreVert,
-                    contentDescription = "More Options"
-                )
-            }
-            DropdownMenu(
-                expanded = showMenu,
-                onDismissRequest = { showMenu = false }
-            ) {
-                DropdownMenuItem(
-                    text = { Text("Edit") },
-                    onClick = {
-                        showMenu = false
-                        onEditClick()
-                    },
-                    leadingIcon = {
-                        Icon(
-                            Icons.Default.Edit,
-                            contentDescription = null
-                        )
-                    }
-                )
-                DropdownMenuItem(
-                    text = { Text("Remove") },
-                    onClick = {
-                        showMenu = false
-                        onDeleteClick()
-                    },
-                    leadingIcon = {
-                        Icon(
-                            Icons.Default.Delete,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.error
-                        )
-                    }
-                )
-            }
+
+        AnimatedVisibility(
+            visible = item.currentValue >= item.targetValue && item.targetValue > 0,
+            enter = fadeIn() + scaleIn(),
+            exit = fadeOut() + scaleOut(),
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .offset(x = 4.dp, y = 4.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Filled.CheckCircle,
+                contentDescription = "Achieved",
+                tint = Color(0xFF4CAF50), // green
+                modifier = Modifier.padding(2.dp)
+            )
         }
     }
 }
