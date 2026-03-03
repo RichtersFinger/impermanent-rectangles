@@ -584,11 +584,13 @@ fun ListItem(
                 }
                 if (isExpanded) {
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = if (item.description.isNotBlank()) item.description else "No description provided",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = if (item.description.isNotBlank()) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline
-                    )
+                    if (item.description.isNotBlank()) {
+                        Text(
+                            text = item.description,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.outline
+                        )
+                    }
                     if (history.isNotEmpty()) {
                         Spacer(modifier = Modifier.height(12.dp))
                         Column {
