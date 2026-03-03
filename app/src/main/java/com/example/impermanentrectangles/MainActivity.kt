@@ -20,7 +20,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.drawscope.rotate;
-import kotlinx.coroutines.delay
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -63,7 +62,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -87,6 +89,12 @@ data class Item(
     val targetValue: Int = 3
 )
 
+data class ItemList(
+    val id: String = UUID.randomUUID().toString(),
+    val name: String,
+    val items: MutableList<Item> = mutableStateListOf()
+)
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -99,26 +107,109 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen() {
-    val items = remember {
+    val lists = remember {
         mutableStateListOf(
-            Item(title = "Item 1", description = "Description for item 1", targetValue = 5),
-            Item(title = "Item 2", description = "", targetValue = 3),
-            Item(title = "Item 3", description = "Description for item 3", targetValue = 10)
+            ItemList(
+                name = "List 1",
+                items = mutableStateListOf(
+                    Item(title = "Item 1", description = "Description for item 1", targetValue = 5),
+                    Item(title = "Item 2", description = "", targetValue = 3),
+                    Item(title = "Item 3", description = "Description for item 3", targetValue = 10)
+                )
+            )
         )
     }
+
+    var selectedListIndex by remember { mutableIntStateOf(0) }
+    val currentList = lists.getOrNull(selectedListIndex)
+    val items = currentList?.items ?: remember { mutableStateListOf<Item>() }
 
     var expandedItemId by remember { mutableStateOf<String?>(null) }
     var showAddDialog by remember { mutableStateOf(false) }
     var itemToEdit by remember { mutableStateOf<Item?>(null) }
     var itemToDelete by remember { mutableStateOf<Item?>(null) }
 
+    var showAddListDialog by remember { mutableStateOf(false) }
+    var listToEdit by remember { mutableStateOf<ItemList?>(null) }
+    var listToDelete by remember { mutableStateOf<ItemList?>(null) }
+
+    var showListSelectionMenu by remember { mutableStateOf(false) }
+    var showContextMenu by remember { mutableStateOf(false) }
+
     Scaffold(
         modifier = Modifier.fillMaxSize(),
+        topBar = {
+            TopAppBar(
+                title = {
+                    Box {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.clickable { showListSelectionMenu = true }
+                        ) {
+                            Text(currentList?.name ?: "No List Selected")
+                            Icon(Icons.Default.ArrowDropDown, contentDescription = "Select List")
+                        }
+                        DropdownMenu(
+                            expanded = showListSelectionMenu,
+                            onDismissRequest = { showListSelectionMenu = false }
+                        ) {
+                            lists.forEachIndexed { index, itemList ->
+                                DropdownMenuItem(
+                                    text = { Text(itemList.name) },
+                                    onClick = {
+                                        selectedListIndex = index
+                                        showListSelectionMenu = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                },
+                actions = {
+                    Box {
+                        IconButton(onClick = { showContextMenu = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "List Options")
+                        }
+                        DropdownMenu(
+                            expanded = showContextMenu,
+                            onDismissRequest = { showContextMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Add a new list") },
+                                onClick = {
+                                    showContextMenu = false
+                                    showAddListDialog = true
+                                }
+                            )
+                            currentList?.let {
+                                DropdownMenuItem(
+                                    text = { Text("Edit current list name") },
+                                    onClick = {
+                                        showContextMenu = false
+                                        listToEdit = it
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Delete current list") },
+                                    onClick = {
+                                        showContextMenu = false
+                                        listToDelete = it
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            )
+        },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showAddDialog = true }) {
-                Icon(Icons.Default.Add, contentDescription = "Add Item")
+            if (currentList != null) {
+                FloatingActionButton(onClick = { showAddDialog = true }) {
+                    Icon(Icons.Default.Add, contentDescription = "Add Item")
+                }
             }
         }
     ) { innerPadding ->
@@ -183,6 +274,51 @@ fun MainScreen() {
                 onConfirm = {
                     items.remove(item)
                     itemToDelete = null
+                }
+            )
+        }
+
+        if (showAddListDialog) {
+            AddListDialog(
+                onDismiss = { showAddListDialog = false },
+                onConfirm = { name ->
+                    val newList = ItemList(name = name)
+                    lists.add(newList)
+                    selectedListIndex = lists.size - 1
+                    showAddListDialog = false
+                }
+            )
+        }
+
+        listToEdit?.let { list ->
+            AddListDialog(
+                initialName = list.name,
+                onDismiss = { listToEdit = null },
+                onConfirm = { newName ->
+                    val index = lists.indexOfFirst { it.id == list.id }
+                    if (index != -1) {
+                        lists[index] = lists[index].copy(name = newName)
+                    }
+                    listToEdit = null
+                }
+            )
+        }
+
+        listToDelete?.let { list ->
+            DeleteListConfirmationDialog(
+                listName = list.name,
+                onDismiss = { listToDelete = null },
+                onConfirm = {
+                    val index = lists.indexOfFirst { it.id == list.id }
+                    if (index != -1) {
+                        lists.removeAt(index)
+                        if (selectedListIndex >= lists.size && lists.isNotEmpty()) {
+                            selectedListIndex = lists.size - 1
+                        } else if (lists.isEmpty()) {
+                            selectedListIndex = 0
+                        }
+                    }
+                    listToDelete = null
                 }
             )
         }
@@ -546,6 +682,71 @@ fun DeleteConfirmationDialog(item: Item, onDismiss: () -> Unit, onConfirm: () ->
         onDismissRequest = onDismiss,
         title = { Text("Delete Item") },
         text = { Text("Are you sure you want to delete '${item.title}'?") },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                Text("Delete")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
+fun AddListDialog(
+    initialName: String = "",
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var name by remember { mutableStateOf(initialName) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (initialName.isEmpty()) "Add New List" else "Edit List Name") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("List Name") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (name.isNotBlank()) {
+                        onConfirm(name.trim())
+                    }
+                },
+                enabled = name.isNotBlank()
+            ) {
+                Text(if (initialName.isEmpty()) "Add" else "Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
+fun DeleteListConfirmationDialog(listName: String, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Delete List") },
+        text = { Text("Are you sure you want to delete the list '$listName'?") },
         confirmButton = {
             Button(
                 onClick = onConfirm,
