@@ -31,7 +31,8 @@ data class ItemEntity(
     val title: String,
     val description: String,
     val currentValue: Int,
-    val targetValue: Int
+    val targetValue: Int,
+    val position: Int = 0
 )
 
 @Entity(

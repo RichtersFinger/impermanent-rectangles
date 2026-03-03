@@ -18,6 +18,9 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
     private val _selectedListIndex = MutableStateFlow(0)
     val selectedListIndex: StateFlow<Int> = _selectedListIndex.asStateFlow()
 
+    private val _isReorderMode = MutableStateFlow(false)
+    val isReorderMode: StateFlow<Boolean> = _isReorderMode.asStateFlow()
+
     @OptIn(ExperimentalCoroutinesApi::class)
     val currentList: StateFlow<ItemList?> = combine(allLists, _selectedListIndex) { lists, index ->
         lists.getOrNull(index)
@@ -37,6 +40,10 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
 
     fun selectList(index: Int) {
         _selectedListIndex.value = index
+    }
+
+    fun toggleReorderMode() {
+        _isReorderMode.value = !_isReorderMode.value
     }
 
     fun addList(name: String) {
@@ -62,7 +69,8 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
 
     fun addItem(listId: String, title: String, description: String, targetValue: Int) {
         viewModelScope.launch {
-            repository.addItem(listId, title, description, targetValue)
+            val maxPosition = currentItems.value.maxOfOrNull { it.position } ?: -1
+            repository.addItem(listId, title, description, targetValue, maxPosition + 1)
         }
     }
 
@@ -75,6 +83,23 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
     fun deleteItem(itemId: String) {
         viewModelScope.launch {
             repository.deleteItem(itemId)
+        }
+    }
+
+    fun moveItem(listId: String, fromIndex: Int, toIndex: Int) {
+        val items = currentItems.value.toMutableList()
+        if (fromIndex !in items.indices || toIndex !in items.indices) return
+
+        val item = items.removeAt(fromIndex)
+        items.add(toIndex, item)
+
+        // Update positions
+        val updatedItems = items.mapIndexed { index, it ->
+            it.copy(position = index)
+        }
+
+        viewModelScope.launch {
+            repository.updateItems(listId, updatedItems)
         }
     }
 

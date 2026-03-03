@@ -12,13 +12,19 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.input.pointer.PointerInputChange
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.animation.core.EaseOut
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.graphics.drawscope.rotate;
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
@@ -42,6 +48,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -77,6 +84,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.material.icons.filled.Done
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -94,7 +102,8 @@ data class Item(
     val title: String,
     val description: String,
     val currentValue: Int = 0,
-    val targetValue: Int = 3
+    val targetValue: Int = 3,
+    val position: Int = 0
 )
 
 data class ItemList(
@@ -125,6 +134,7 @@ fun MainScreen(viewModel: MainViewModel = viewModel(factory = MainViewModelFacto
     val currentList by viewModel.currentList.collectAsStateWithLifecycle()
     val items by viewModel.currentItems.collectAsStateWithLifecycle()
     val currentHistory by viewModel.currentHistory.collectAsStateWithLifecycle()
+    val isReorderMode by viewModel.isReorderMode.collectAsStateWithLifecycle()
 
     var expandedItemId by remember { mutableStateOf<String?>(null) }
     var showAddDialog by remember { mutableStateOf(false) }
@@ -138,6 +148,11 @@ fun MainScreen(viewModel: MainViewModel = viewModel(factory = MainViewModelFacto
 
     var showListSelectionMenu by remember { mutableStateOf(false) }
     var showContextMenu by remember { mutableStateOf(false) }
+
+    // Reorder state
+    var draggingItemIndex by remember { mutableStateOf<Int?>(null) }
+    var dragOffset by remember { mutableFloatStateOf(0f) }
+    val lazyListState = rememberLazyListState()
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -169,6 +184,14 @@ fun MainScreen(viewModel: MainViewModel = viewModel(factory = MainViewModelFacto
                     }
                 },
                 actions = {
+                    if (currentList != null) {
+                        IconButton(onClick = { viewModel.toggleReorderMode() }) {
+                            Icon(
+                                if (isReorderMode) Icons.Default.Done else Icons.Default.List,
+                                contentDescription = if (isReorderMode) "Exit Reorder Mode" else "Enter Reorder Mode"
+                            )
+                        }
+                    }
                     Box {
                         IconButton(onClick = { showContextMenu = true }) {
                             Icon(Icons.Default.MoreVert, contentDescription = "List Options")
@@ -215,7 +238,7 @@ fun MainScreen(viewModel: MainViewModel = viewModel(factory = MainViewModelFacto
             )
         },
         floatingActionButton = {
-            if (currentList != null) {
+            if (currentList != null && !isReorderMode) {
                 FloatingActionButton(
                     onClick = { showAddDialog = true },
                     modifier = Modifier.alpha(0.75f),
@@ -243,12 +266,49 @@ fun MainScreen(viewModel: MainViewModel = viewModel(factory = MainViewModelFacto
                     color = MaterialTheme.colorScheme.secondary
                 )
             }
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                state = lazyListState
+            ) {
                 items(items, key = { it.id }) { item ->
-                    ListItem(
+                    val index = items.indexOfFirst { it.id == item.id }
+                    Box(modifier = Modifier.animateItem()) {
+                        ListItem(
                         item = item,
                         isExpanded = item.id == expandedItemId,
                         history = currentHistory.takeLast(5).map { it[item.id] ?: 0f },
+                        isDragging = index == draggingItemIndex,
+                        isReorderMode = isReorderMode,
+                        onDragStart = {
+                            draggingItemIndex = index
+                            dragOffset = 0f
+                        },
+                        onDrag = { delta ->
+                            dragOffset += delta
+                            val currentDraggingIndex = draggingItemIndex ?: return@ListItem
+                            
+                            val itemLayoutInfo = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == item.id }
+                            val itemHeight = itemLayoutInfo?.size ?: 100
+                            val threshold = itemHeight / 2
+                            
+                            if (dragOffset > threshold && currentDraggingIndex < items.size - 1) {
+                                currentList?.let { list ->
+                                    viewModel.moveItem(list.id, currentDraggingIndex, currentDraggingIndex + 1)
+                                    draggingItemIndex = currentDraggingIndex + 1
+                                    dragOffset -= itemHeight
+                                }
+                            } else if (dragOffset < -threshold && currentDraggingIndex > 0) {
+                                currentList?.let { list ->
+                                    viewModel.moveItem(list.id, currentDraggingIndex, currentDraggingIndex - 1)
+                                    draggingItemIndex = currentDraggingIndex - 1
+                                    dragOffset += itemHeight
+                                }
+                            }
+                        },
+                        onDragEnd = {
+                            draggingItemIndex = null
+                            dragOffset = 0f
+                        },
                         onToggleExpand = {
                             expandedItemId = if (expandedItemId == item.id) null else item.id
                         },
@@ -261,6 +321,7 @@ fun MainScreen(viewModel: MainViewModel = viewModel(factory = MainViewModelFacto
                             }
                         }
                     )
+                    }
                     HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
                 }
             }
@@ -487,8 +548,17 @@ fun ListItem(
     onToggleExpand: () -> Unit,
     onEditClick: () -> Unit,
     onDeleteClick: () -> Unit,
-    onUpdateValue: (Int) -> Unit
+    onUpdateValue: (Int) -> Unit,
+    onDragStart: () -> Unit = {},
+    onDrag: (Float) -> Unit = {},
+    onDragEnd: () -> Unit = {},
+    isDragging: Boolean = false,
+    isReorderMode: Boolean = false
 ) {
+    if (isDragging && !isReorderMode) {
+        // Safety check to reset dragging if mode changes unexpectedly
+        LaunchedEffect(Unit) { onDragEnd() }
+    }
     var showMenu by remember { mutableStateOf(false) }
     var offsetX by remember { mutableFloatStateOf(0f) }
     val threshold = 150f
@@ -505,28 +575,64 @@ fun ListItem(
         wasComplete = nowComplete
     }
 
-    Box(modifier = Modifier.fillMaxWidth()) {
+    val dragElevation by animateDpAsState(if (isDragging) 8.dp else 0.dp, label = "dragElevation")
+    val dragAlpha by animateFloatAsState(if (isDragging) 0.8f else 1f, label = "dragAlpha")
+    val dragScale by animateFloatAsState(if (isDragging) 1.05f else 1f, label = "dragScale")
+    val backgroundColor by animateColorAsState(
+        if (isDragging) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent,
+        label = "dragColor"
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .zIndex(if (isDragging) 1f else 0f)
+            .graphicsLayer {
+                scaleX = dragScale
+                scaleY = dragScale
+                alpha = dragAlpha
+                shadowElevation = dragElevation.toPx()
+                shape = RoundedCornerShape(if (isDragging) 8.dp else 0.dp)
+                clip = isDragging
+            }
+            .background(backgroundColor)
+            .pointerInput(item.id, isReorderMode) {
+                if (isReorderMode) {
+                    detectDragGesturesAfterLongPress(
+                        onDragStart = { onDragStart() },
+                        onDrag = { change, dragAmount ->
+                            change.consume()
+                            onDrag(dragAmount.y)
+                        },
+                        onDragEnd = { onDragEnd() },
+                        onDragCancel = { onDragEnd() }
+                    )
+                }
+            }
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .pointerInput(item) {
-                    detectHorizontalDragGestures(
-                        onDragEnd = {
-                            if (offsetX > threshold) {
-                                onUpdateValue(+1)
-                            } else if (offsetX < -threshold) {
-                                onUpdateValue(-1)
+                .pointerInput(item, isReorderMode) {
+                    if (!isReorderMode) {
+                        detectHorizontalDragGestures(
+                            onDragEnd = {
+                                if (offsetX > threshold) {
+                                    onUpdateValue(+1)
+                                } else if (offsetX < -threshold) {
+                                    onUpdateValue(-1)
+                                }
+                                offsetX = 0f
+                            },
+                            onHorizontalDrag = { change, dragAmount ->
+                                change.consume()
+                                offsetX += dragAmount
                             }
-                            offsetX = 0f
-                        },
-                        onHorizontalDrag = { change, dragAmount ->
-                            change.consume()
-                            offsetX += dragAmount
-                        }
-                    )
+                        )
+                    }
                 }
                 .offset { IntOffset(offsetX.roundToInt(), 0) }
-                .clickable { onToggleExpand() }
+                .clickable(enabled = !isReorderMode) { onToggleExpand() }
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -636,44 +742,46 @@ fun ListItem(
                     }
                 }
             }
-            Box {
-                IconButton(onClick = { showMenu = true }) {
-                    Icon(
-                        imageVector = Icons.Default.MoreVert,
-                        contentDescription = "More Options"
-                    )
-                }
-                DropdownMenu(
-                    expanded = showMenu,
-                    onDismissRequest = { showMenu = false }
-                ) {
-                    DropdownMenuItem(
-                        text = { Text("Edit") },
-                        onClick = {
-                            showMenu = false
-                            onEditClick()
-                        },
-                        leadingIcon = {
-                            Icon(
-                                Icons.Default.Edit,
-                                contentDescription = null
-                            )
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Remove") },
-                        onClick = {
-                            showMenu = false
-                            onDeleteClick()
-                        },
-                        leadingIcon = {
-                            Icon(
-                                Icons.Default.Delete,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.error
-                            )
-                        }
-                    )
+            if (!isReorderMode) {
+                Box {
+                    IconButton(onClick = { showMenu = true }) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = "More Options"
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Edit") },
+                            onClick = {
+                                showMenu = false
+                                onEditClick()
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.Edit,
+                                    contentDescription = null
+                                )
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Remove") },
+                            onClick = {
+                                showMenu = false
+                                onDeleteClick()
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        )
+                    }
                 }
             }
         }

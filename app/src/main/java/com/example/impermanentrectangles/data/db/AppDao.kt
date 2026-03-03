@@ -13,8 +13,11 @@ interface AppDao {
     @Query("SELECT * FROM item_lists")
     fun getAllLists(): Flow<List<ItemListEntity>>
 
-    @Query("SELECT * FROM items WHERE listId = :listId")
+    @Query("SELECT * FROM items WHERE listId = :listId ORDER BY position ASC")
     fun getItemsForList(listId: String): Flow<List<ItemEntity>>
+
+    @Insert
+    suspend fun insertItems(items: List<ItemEntity>)
 
     @Query("SELECT * FROM history_entries WHERE listId = :listId ORDER BY timestamp ASC")
     fun getHistoryEntriesForList(listId: String): Flow<List<HistoryEntryEntity>>
@@ -40,6 +43,9 @@ interface AppDao {
 
     @Update
     suspend fun updateItem(item: ItemEntity)
+
+    @Update
+    suspend fun updateItems(items: List<ItemEntity>)
 
     @Delete
     suspend fun deleteItem(item: ItemEntity)

@@ -31,7 +31,8 @@ class AppRepository(private val appDao: AppDao) {
                     title = entity.title,
                     description = entity.description,
                     currentValue = entity.currentValue,
-                    targetValue = entity.targetValue
+                    targetValue = entity.targetValue,
+                    position = entity.position
                 )
             }
         }
@@ -57,14 +58,15 @@ class AppRepository(private val appDao: AppDao) {
         appDao.deleteList(ItemListEntity(id = list.id, name = list.name, iterationStartTime = list.iterationStartTime))
     }
 
-    suspend fun addItem(listId: String, title: String, description: String, targetValue: Int) {
+    suspend fun addItem(listId: String, title: String, description: String, targetValue: Int, position: Int) {
         appDao.insertItem(
             ItemEntity(
                 listId = listId,
                 title = title,
                 description = description,
                 currentValue = 0,
-                targetValue = targetValue
+                targetValue = targetValue,
+                position = position
             )
         )
     }
@@ -77,8 +79,25 @@ class AppRepository(private val appDao: AppDao) {
                 title = item.title,
                 description = item.description,
                 currentValue = item.currentValue,
-                targetValue = item.targetValue
+                targetValue = item.targetValue,
+                position = item.position
             )
+        )
+    }
+
+    suspend fun updateItems(listId: String, items: List<Item>) {
+        appDao.updateItems(
+            items.map { item ->
+                ItemEntity(
+                    id = item.id,
+                    listId = listId,
+                    title = item.title,
+                    description = item.description,
+                    currentValue = item.currentValue,
+                    targetValue = item.targetValue,
+                    position = item.position
+                )
+            }
         )
     }
 
