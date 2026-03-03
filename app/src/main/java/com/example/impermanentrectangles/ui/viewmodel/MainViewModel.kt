@@ -48,7 +48,14 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
 
     fun addList(name: String) {
         viewModelScope.launch {
-            repository.addList(name)
+            val newId = repository.addList(name)
+            // Wait for allLists to be updated with the new ID
+            allLists.first { lists -> lists.any { it.id == newId } }
+            // Now find the index and select it
+            val index = allLists.value.indexOfFirst { it.id == newId }
+            if (index != -1) {
+                _selectedListIndex.value = index
+            }
         }
     }
 

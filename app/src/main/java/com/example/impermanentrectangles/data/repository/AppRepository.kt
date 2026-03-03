@@ -46,8 +46,10 @@ class AppRepository(private val appDao: AppDao) {
         }
     }
 
-    suspend fun addList(name: String) {
-        appDao.insertList(ItemListEntity(name = name))
+    suspend fun addList(name: String): String {
+        val list = ItemListEntity(name = name)
+        appDao.insertList(list)
+        return list.id
     }
 
     suspend fun updateList(list: ItemList) {
