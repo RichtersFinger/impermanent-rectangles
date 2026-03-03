@@ -1,4 +1,4 @@
-package com.example.impermanentrectangles.data.db
+package com.richtersfinger.impermanentrectangles.data.db
 
 import androidx.room.Embedded
 import androidx.room.Entity

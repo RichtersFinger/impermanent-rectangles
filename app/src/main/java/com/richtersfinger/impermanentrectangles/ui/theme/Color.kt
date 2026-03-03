@@ -1,4 +1,4 @@
-package com.example.impermanentrectangles.ui.theme
+package com.richtersfinger.impermanentrectangles.ui.theme
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp

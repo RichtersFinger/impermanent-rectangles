@@ -1,4 +1,4 @@
-package com.example.impermanentrectangles
+package com.richtersfinger.impermanentrectangles
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -81,24 +81,24 @@ import androidx.compose.material.icons.filled.Done
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.example.impermanentrectangles.ui.theme.ImpermanentRectanglesTheme
+import com.richtersfinger.impermanentrectangles.ui.theme.ImpermanentRectanglesTheme
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.impermanentrectangles.data.db.AppDatabase
-import com.example.impermanentrectangles.data.repository.AppRepository
-import com.example.impermanentrectangles.ui.viewmodel.MainViewModel
-import com.example.impermanentrectangles.ui.viewmodel.MainViewModelFactory
+import com.richtersfinger.impermanentrectangles.data.db.AppDatabase
+import com.richtersfinger.impermanentrectangles.data.repository.AppRepository
+import com.richtersfinger.impermanentrectangles.ui.viewmodel.MainViewModel
+import com.richtersfinger.impermanentrectangles.ui.viewmodel.MainViewModelFactory
 import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.res.stringResource
-import com.example.impermanentrectangles.ui.components.AboutDialog
-import com.example.impermanentrectangles.ui.components.AddItemDialog
-import com.example.impermanentrectangles.ui.components.AddListDialog
-import com.example.impermanentrectangles.ui.components.DeleteConfirmationDialog
-import com.example.impermanentrectangles.ui.components.DeleteListConfirmationDialog
-import com.example.impermanentrectangles.ui.components.ListInfoDialog
-import com.example.impermanentrectangles.ui.components.NewIterationConfirmationDialog
-import com.example.impermanentrectangles.ui.theme.progressToColor
+import com.richtersfinger.impermanentrectangles.ui.components.AboutDialog
+import com.richtersfinger.impermanentrectangles.ui.components.AddItemDialog
+import com.richtersfinger.impermanentrectangles.ui.components.AddListDialog
+import com.richtersfinger.impermanentrectangles.ui.components.DeleteConfirmationDialog
+import com.richtersfinger.impermanentrectangles.ui.components.DeleteListConfirmationDialog
+import com.richtersfinger.impermanentrectangles.ui.components.ListInfoDialog
+import com.richtersfinger.impermanentrectangles.ui.components.NewIterationConfirmationDialog
+import com.richtersfinger.impermanentrectangles.ui.theme.progressToColor
 import java.util.UUID
 
 data class Item(

@@ -1,11 +1,11 @@
-package com.example.impermanentrectangles.ui.viewmodel
+package com.richtersfinger.impermanentrectangles.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.example.impermanentrectangles.Item
-import com.example.impermanentrectangles.ItemList
-import com.example.impermanentrectangles.data.repository.AppRepository
+import com.richtersfinger.impermanentrectangles.Item
+import com.richtersfinger.impermanentrectangles.ItemList
+import com.richtersfinger.impermanentrectangles.data.repository.AppRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch

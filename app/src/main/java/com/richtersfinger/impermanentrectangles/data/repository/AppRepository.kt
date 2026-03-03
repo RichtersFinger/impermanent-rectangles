@@ -1,12 +1,9 @@
-package com.example.impermanentrectangles.data.repository
+package com.richtersfinger.impermanentrectangles.data.repository
 
-import androidx.compose.runtime.mutableStateListOf
-import com.example.impermanentrectangles.Item
-import com.example.impermanentrectangles.ItemList
-import com.example.impermanentrectangles.data.db.*
+import com.richtersfinger.impermanentrectangles.Item
+import com.richtersfinger.impermanentrectangles.ItemList
+import com.richtersfinger.impermanentrectangles.data.db.*
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 
 class AppRepository(private val appDao: AppDao) {

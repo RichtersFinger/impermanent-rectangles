@@ -1,4 +1,4 @@
-package com.example.impermanentrectangles
+package com.richtersfinger.impermanentrectangles
 
 import org.junit.Test
 

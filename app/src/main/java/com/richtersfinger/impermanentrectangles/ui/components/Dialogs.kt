@@ -1,4 +1,4 @@
-package com.example.impermanentrectangles.ui.components
+package com.richtersfinger.impermanentrectangles.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -27,9 +27,9 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import com.example.impermanentrectangles.Item
-import com.example.impermanentrectangles.ItemList
-import com.example.impermanentrectangles.R
+import com.richtersfinger.impermanentrectangles.Item
+import com.richtersfinger.impermanentrectangles.ItemList
+import com.richtersfinger.impermanentrectangles.R
 
 @Composable
 fun NewIterationConfirmationDialog(

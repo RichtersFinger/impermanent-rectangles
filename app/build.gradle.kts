@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.impermanentrectangles"
+    namespace = "com.richtersfinger.impermanentrectangles"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.impermanentrectangles"
+        applicationId = "com.richtersfinger.impermanentrectangles"
         minSdk = 26
         targetSdk = 36
         versionCode = 1
