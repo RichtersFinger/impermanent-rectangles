@@ -70,7 +70,7 @@ fun MainScreen() {
     val items = remember {
         mutableStateListOf(
             Item(title = "Item 1", description = "Description for item 1"),
-            Item(title = "Item 2", description = "Description for item 2"),
+            Item(title = "Item 2", description = ""),
             Item(title = "Item 3", description = "Description for item 3")
         )
     }
@@ -173,8 +173,9 @@ fun ListItem(
             if (isExpanded) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = item.description,
-                    style = MaterialTheme.typography.bodyMedium
+                    text = if (item.description.isNotBlank()) item.description else "No description provided",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (item.description.isNotBlank()) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline
                 )
             }
         }
@@ -254,11 +255,11 @@ fun AddItemDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    if (title.isNotBlank() && description.isNotBlank()) {
-                        onConfirm(title, description)
+                    if (title.isNotBlank()) {
+                        onConfirm(title, description.trim())
                     }
                 },
-                enabled = title.isNotBlank() && description.isNotBlank()
+                enabled = title.isNotBlank()
             ) {
                 Text(if (initialTitle.isEmpty()) "Add" else "Save")
             }
