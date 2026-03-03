@@ -75,6 +75,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -92,7 +93,9 @@ data class Item(
 data class ItemList(
     val id: String = UUID.randomUUID().toString(),
     val name: String,
-    val items: MutableList<Item> = mutableStateListOf()
+    val items: MutableList<Item> = mutableStateListOf(),
+    val iterationStartTime: Long = System.currentTimeMillis(),
+    val history: MutableList<Map<String, Float>> = mutableStateListOf()
 )
 
 class MainActivity : ComponentActivity() {
@@ -118,9 +121,30 @@ fun MainScreen() {
                     Item(title = "Item 1", description = "Description for item 1", targetValue = 5),
                     Item(title = "Item 2", description = "", targetValue = 3),
                     Item(title = "Item 3", description = "Description for item 3", targetValue = 10)
+                ),
+                history = mutableStateListOf(
+                    mapOf("item_1_id" to 0.2f, "item_2_id" to 0.5f, "item_3_id" to 1.0f),
+                    mapOf("item_1_id" to 0.8f, "item_2_id" to 1.0f, "item_3_id" to 1.2f),
+                    mapOf("item_1_id" to 1.0f, "item_2_id" to 0.3f, "item_3_id" to 0.7f)
                 )
             )
         )
+    }
+
+    // For the preview/initial state to work with history, we need stable IDs
+    LaunchedEffect(Unit) {
+        if (lists[0].items.size >= 3) {
+            val item1 = lists[0].items[0]
+            val item2 = lists[0].items[1]
+            val item3 = lists[0].items[2]
+                            
+            val historyEntry1 = mapOf(item1.id to 0.2f, item2.id to 0.5f, item3.id to 1.0f)
+            val historyEntry2 = mapOf(item1.id to 0.8f, item2.id to 1.0f, item3.id to 1.2f)
+            val historyEntry3 = mapOf(item1.id to 1.0f, item2.id to 0.3f, item3.id to 0.7f)
+                            
+            lists[0].history.clear()
+            lists[0].history.addAll(listOf(historyEntry1, historyEntry2, historyEntry3))
+        }
     }
 
     var selectedListIndex by remember { mutableIntStateOf(0) }
@@ -135,6 +159,7 @@ fun MainScreen() {
     var showAddListDialog by remember { mutableStateOf(false) }
     var listToEdit by remember { mutableStateOf<ItemList?>(null) }
     var listToDelete by remember { mutableStateOf<ItemList?>(null) }
+    var listForNewIteration by remember { mutableStateOf<ItemList?>(null) }
 
     var showListSelectionMenu by remember { mutableStateOf(false) }
     var showContextMenu by remember { mutableStateOf(false) }
@@ -177,6 +202,15 @@ fun MainScreen() {
                             expanded = showContextMenu,
                             onDismissRequest = { showContextMenu = false }
                         ) {
+                            currentList?.let {
+                                DropdownMenuItem(
+                                    text = { Text("New iteration") },
+                                    onClick = {
+                                        showContextMenu = false
+                                        listForNewIteration = it
+                                    }
+                                )
+                            }
                             DropdownMenuItem(
                                 text = { Text("Add a new list") },
                                 onClick = {
@@ -218,11 +252,22 @@ fun MainScreen() {
                 .padding(innerPadding)
                 .fillMaxSize()
         ) {
+            currentList?.let { list ->
+                val formatter = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault())
+                val dateStr = formatter.format(java.util.Date(list.iterationStartTime))
+                Text(
+                    text = "Iteration started: $dateStr",
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    color = MaterialTheme.colorScheme.secondary
+                )
+            }
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 items(items, key = { it.id }) { item ->
                     ListItem(
                         item = item,
                         isExpanded = item.id == expandedItemId,
+                        history = currentList?.history?.takeLast(5)?.map { it[item.id] ?: 0f } ?: emptyList(),
                         onToggleExpand = {
                             expandedItemId = if (expandedItemId == item.id) null else item.id
                         },
@@ -322,7 +367,57 @@ fun MainScreen() {
                 }
             )
         }
+
+        listForNewIteration?.let { list ->
+            NewIterationConfirmationDialog(
+                listName = list.name,
+                onDismiss = { listForNewIteration = null },
+                onConfirm = {
+                    val index = lists.indexOfFirst { it.id == list.id }
+                    if (index != -1) {
+                        val currentItems = lists[index].items
+                        val percentages = currentItems.associate { it.id to (it.currentValue.toFloat() / it.targetValue.coerceAtLeast(1)) }
+                        
+                        // Update items to reset currentValue
+                        val resetItems = currentItems.map { it.copy(currentValue = 0) }
+                        currentItems.clear()
+                        currentItems.addAll(resetItems)
+
+                        // Update list with new history and start time
+                        val updatedList = lists[index].copy(
+                            iterationStartTime = System.currentTimeMillis()
+                        )
+                        updatedList.history.add(percentages)
+                        lists[index] = updatedList
+                    }
+                    listForNewIteration = null
+                }
+            )
+        }
     }
+}
+
+@Composable
+fun NewIterationConfirmationDialog(
+    listName: String,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Start New Iteration") },
+        text = { Text("Are you sure you want to start a new iteration for '$listName'? Current progress will be saved and counters will be reset.") },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text("Start")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }
 
 private fun progressToColor(progress: Float): Color {
@@ -436,6 +531,7 @@ fun ConfettiBurst(
 fun ListItem(
     item: Item,
     isExpanded: Boolean,
+    history: List<Float> = emptyList(),
     onToggleExpand: () -> Unit,
     onEditClick: () -> Unit,
     onDeleteClick: () -> Unit,
@@ -543,12 +639,47 @@ fun ListItem(
                     )
                 }
                 if (isExpanded) {
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = if (item.description.isNotBlank()) item.description else "No description provided",
                         style = MaterialTheme.typography.bodyMedium,
                         color = if (item.description.isNotBlank()) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline
                     )
+                    if (history.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Column {
+                            Text(
+                                text = "Previous iterations",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.outline,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Row(
+                                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                history.forEach { progress ->
+                                    val color = progressToColor(progress)
+                                    Box(
+                                        modifier = Modifier
+                                            .height(8.dp)
+                                            .weight(1f)
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(color.copy(alpha = 0.2f))
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxHeight()
+                                                .fillMaxWidth(progress.coerceIn(0f, 1f))
+                                                .clip(RoundedCornerShape(4.dp))
+                                                .background(color)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
             Box {
