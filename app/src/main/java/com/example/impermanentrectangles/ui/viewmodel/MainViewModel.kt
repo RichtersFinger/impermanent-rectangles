@@ -46,9 +46,9 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
         _isReorderMode.value = !_isReorderMode.value
     }
 
-    fun addList(name: String) {
+    fun addList(name: String, description: String = "") {
         viewModelScope.launch {
-            val newId = repository.addList(name)
+            val newId = repository.addList(name, description)
             // Wait for allLists to be updated with the new ID
             allLists.first { lists -> lists.any { it.id == newId } }
             // Now find the index and select it

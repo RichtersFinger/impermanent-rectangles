@@ -109,6 +109,7 @@ data class Item(
 data class ItemList(
     val id: String = UUID.randomUUID().toString(),
     val name: String,
+    val description: String = "",
     val items: List<Item> = emptyList(),
     val iterationStartTime: Long = System.currentTimeMillis(),
     val history: List<Map<String, Float>> = emptyList()
@@ -142,6 +143,7 @@ fun MainScreen(viewModel: MainViewModel = viewModel(factory = MainViewModelFacto
     var itemToDelete by remember { mutableStateOf<Item?>(null) }
 
     var showAddListDialog by remember { mutableStateOf(false) }
+    var showListInfoDialog by remember { mutableStateOf(false) }
     var listToEdit by remember { mutableStateOf<ItemList?>(null) }
     var listToDelete by remember { mutableStateOf<ItemList?>(null) }
     var listForNewIteration by remember { mutableStateOf<ItemList?>(null) }
@@ -202,6 +204,13 @@ fun MainScreen(viewModel: MainViewModel = viewModel(factory = MainViewModelFacto
                         ) {
                             currentList?.let {
                                 DropdownMenuItem(
+                                    text = { Text("Show info") },
+                                    onClick = {
+                                        showContextMenu = false
+                                        showListInfoDialog = true
+                                    }
+                                )
+                                DropdownMenuItem(
                                     text = { Text("New iteration") },
                                     onClick = {
                                         showContextMenu = false
@@ -218,7 +227,7 @@ fun MainScreen(viewModel: MainViewModel = viewModel(factory = MainViewModelFacto
                             )
                             currentList?.let {
                                 DropdownMenuItem(
-                                    text = { Text("Edit current list name") },
+                                    text = { Text("Edit current list") },
                                     onClick = {
                                         showContextMenu = false
                                         listToEdit = it
@@ -256,16 +265,6 @@ fun MainScreen(viewModel: MainViewModel = viewModel(factory = MainViewModelFacto
                 .padding(innerPadding)
                 .fillMaxSize()
         ) {
-            currentList?.let { list ->
-                val formatter = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault())
-                val dateStr = formatter.format(java.util.Date(list.iterationStartTime))
-                Text(
-                    text = "Iteration started: $dateStr",
-                    style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                    color = MaterialTheme.colorScheme.secondary
-                )
-            }
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 state = lazyListState
@@ -368,8 +367,8 @@ fun MainScreen(viewModel: MainViewModel = viewModel(factory = MainViewModelFacto
         if (showAddListDialog) {
             AddListDialog(
                 onDismiss = { showAddListDialog = false },
-                onConfirm = { name ->
-                    viewModel.addList(name)
+                onConfirm = { name, description ->
+                    viewModel.addList(name, description)
                     showAddListDialog = false
                 }
             )
@@ -378,12 +377,23 @@ fun MainScreen(viewModel: MainViewModel = viewModel(factory = MainViewModelFacto
         listToEdit?.let { list ->
             AddListDialog(
                 initialName = list.name,
+                initialDescription = list.description,
                 onDismiss = { listToEdit = null },
-                onConfirm = { newName ->
-                    viewModel.updateList(list.copy(name = newName))
+                onConfirm = { newName, newDescription ->
+                    viewModel.updateList(list.copy(name = newName, description = newDescription))
                     listToEdit = null
                 }
             )
+        }
+
+        if (showListInfoDialog) {
+            currentList?.let { list ->
+                ListInfoDialog(
+                    itemList = list,
+                    totalIterations = currentHistory.size,
+                    onDismiss = { showListInfoDialog = false }
+                )
+            }
         }
 
         listToDelete?.let { list ->
@@ -896,14 +906,16 @@ fun DeleteConfirmationDialog(item: Item, onDismiss: () -> Unit, onConfirm: () ->
 @Composable
 fun AddListDialog(
     initialName: String = "",
+    initialDescription: String = "",
     onDismiss: () -> Unit,
-    onConfirm: (String) -> Unit
+    onConfirm: (String, String) -> Unit
 ) {
     var name by remember { mutableStateOf(initialName) }
+    var description by remember { mutableStateOf(initialDescription) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (initialName.isEmpty()) "Add New List" else "Edit List Name") },
+        title = { Text(if (initialName.isEmpty()) "Add New List" else "Edit List") },
         text = {
             Column {
                 OutlinedTextField(
@@ -912,13 +924,20 @@ fun AddListDialog(
                     label = { Text("List Name") },
                     modifier = Modifier.fillMaxWidth()
                 )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = { Text("Description") },
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         },
         confirmButton = {
             Button(
                 onClick = {
                     if (name.isNotBlank()) {
-                        onConfirm(name.trim())
+                        onConfirm(name.trim(), description.trim())
                     }
                 },
                 enabled = name.isNotBlank()
@@ -929,6 +948,48 @@ fun AddListDialog(
         dismissButton = {
             TextButton(onClick = onDismiss) {
                 Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
+fun ListInfoDialog(
+    itemList: ItemList,
+    totalIterations: Int,
+    onDismiss: () -> Unit
+) {
+    val formatter = remember { java.text.SimpleDateFormat("MMMM dd, yyyy HH:mm", java.util.Locale.getDefault()) }
+    val dateStr = formatter.format(java.util.Date(itemList.iterationStartTime))
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(itemList.name) },
+        text = {
+            Column {
+                if (itemList.description.isNotBlank()) {
+                    Text(
+                        text = itemList.description,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+                Text(
+                    text = "Iteration started: $dateStr",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.secondary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Total iterations: $totalIterations",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.secondary
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close")
             }
         }
     )

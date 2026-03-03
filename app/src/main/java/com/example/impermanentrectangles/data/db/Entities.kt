@@ -11,6 +11,7 @@ import java.util.UUID
 data class ItemListEntity(
     @PrimaryKey val id: String = UUID.randomUUID().toString(),
     val name: String,
+    val description: String = "",
     val iterationStartTime: Long = System.currentTimeMillis()
 )
 

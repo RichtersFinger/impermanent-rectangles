@@ -17,6 +17,7 @@ class AppRepository(private val appDao: AppDao) {
                 ItemList(
                     id = entity.id,
                     name = entity.name,
+                    description = entity.description,
                     iterationStartTime = entity.iterationStartTime
                 )
             }
@@ -46,18 +47,18 @@ class AppRepository(private val appDao: AppDao) {
         }
     }
 
-    suspend fun addList(name: String): String {
-        val list = ItemListEntity(name = name)
+    suspend fun addList(name: String, description: String = ""): String {
+        val list = ItemListEntity(name = name, description = description)
         appDao.insertList(list)
         return list.id
     }
 
     suspend fun updateList(list: ItemList) {
-        appDao.updateList(ItemListEntity(id = list.id, name = list.name, iterationStartTime = list.iterationStartTime))
+        appDao.updateList(ItemListEntity(id = list.id, name = list.name, description = list.description, iterationStartTime = list.iterationStartTime))
     }
 
     suspend fun deleteList(list: ItemList) {
-        appDao.deleteList(ItemListEntity(id = list.id, name = list.name, iterationStartTime = list.iterationStartTime))
+        appDao.deleteList(ItemListEntity(id = list.id, name = list.name, description = list.description, iterationStartTime = list.iterationStartTime))
     }
 
     suspend fun addItem(listId: String, title: String, description: String, targetValue: Int, position: Int) {
