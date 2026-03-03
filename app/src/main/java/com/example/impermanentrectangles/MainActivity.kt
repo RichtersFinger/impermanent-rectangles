@@ -133,7 +133,17 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen(viewModel: MainViewModel = viewModel(factory = MainViewModelFactory(AppRepository(AppDatabase.getDatabase(androidx.compose.ui.platform.LocalContext.current).appDao())))) {
+fun MainScreen(
+    viewModel: MainViewModel = viewModel(
+        factory = MainViewModelFactory(
+            AppRepository(
+                AppDatabase.getDatabase(
+                    androidx.compose.ui.platform.LocalContext.current
+                ).appDao()
+            )
+        )
+    )
+) {
     val lists by viewModel.allLists.collectAsStateWithLifecycle()
     val selectedListIndex by viewModel.selectedListIndex.collectAsStateWithLifecycle()
     val currentList by viewModel.currentList.collectAsStateWithLifecycle()
@@ -319,53 +329,54 @@ fun MainScreen(viewModel: MainViewModel = viewModel(factory = MainViewModelFacto
                         val index = items.indexOfFirst { it.id == item.id }
                         Box(modifier = Modifier.animateItem()) {
                             ListItem(
-                            item = item,
-                            isExpanded = item.id == expandedItemId,
-                            history = currentHistory.takeLast(5).map { it[item.id] ?: 0f },
-                            isDragging = index == draggingItemIndex,
-                            isReorderMode = isReorderMode,
-                            onDragStart = {
-                                draggingItemIndex = index
-                                dragOffset = 0f
-                            },
-                            onDrag = { delta ->
-                                dragOffset += delta
-                                val currentDraggingIndex = draggingItemIndex ?: return@ListItem
-                                
-                                val itemLayoutInfo = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == item.id }
-                                val itemHeight = itemLayoutInfo?.size ?: 100
-                                val threshold = itemHeight / 2
-                                
-                                if (dragOffset > threshold && currentDraggingIndex < items.size - 1) {
-                                    currentList?.let { list ->
-                                        viewModel.moveItem(list.id, currentDraggingIndex, currentDraggingIndex + 1)
-                                        draggingItemIndex = currentDraggingIndex + 1
-                                        dragOffset -= itemHeight
+                                item = item,
+                                isExpanded = item.id == expandedItemId,
+                                history = currentHistory.takeLast(5).map { it[item.id] ?: 0f },
+                                isDragging = index == draggingItemIndex,
+                                isReorderMode = isReorderMode,
+                                onDragStart = {
+                                    draggingItemIndex = index
+                                    dragOffset = 0f
+                                },
+                                onDrag = { delta ->
+                                    dragOffset += delta
+                                    val currentDraggingIndex = draggingItemIndex ?: return@ListItem
+
+                                    val itemLayoutInfo =
+                                        lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == item.id }
+                                    val itemHeight = itemLayoutInfo?.size ?: 100
+                                    val threshold = itemHeight / 2
+
+                                    if (dragOffset > threshold && currentDraggingIndex < items.size - 1) {
+                                        currentList?.let { list ->
+                                            viewModel.moveItem(list.id, currentDraggingIndex, currentDraggingIndex + 1)
+                                            draggingItemIndex = currentDraggingIndex + 1
+                                            dragOffset -= itemHeight
+                                        }
+                                    } else if (dragOffset < -threshold && currentDraggingIndex > 0) {
+                                        currentList?.let { list ->
+                                            viewModel.moveItem(list.id, currentDraggingIndex, currentDraggingIndex - 1)
+                                            draggingItemIndex = currentDraggingIndex - 1
+                                            dragOffset += itemHeight
+                                        }
                                     }
-                                } else if (dragOffset < -threshold && currentDraggingIndex > 0) {
+                                },
+                                onDragEnd = {
+                                    draggingItemIndex = null
+                                    dragOffset = 0f
+                                },
+                                onToggleExpand = {
+                                    expandedItemId = if (expandedItemId == item.id) null else item.id
+                                },
+                                onEditClick = { itemToEdit = item },
+                                onDeleteClick = { itemToDelete = item },
+                                onUpdateValue = { delta ->
                                     currentList?.let { list ->
-                                        viewModel.moveItem(list.id, currentDraggingIndex, currentDraggingIndex - 1)
-                                        draggingItemIndex = currentDraggingIndex - 1
-                                        dragOffset += itemHeight
+                                        val updatedValue = (item.currentValue + delta).coerceAtLeast(0)
+                                        viewModel.updateItem(list.id, item.copy(currentValue = updatedValue))
                                     }
                                 }
-                            },
-                            onDragEnd = {
-                                draggingItemIndex = null
-                                dragOffset = 0f
-                            },
-                            onToggleExpand = {
-                                expandedItemId = if (expandedItemId == item.id) null else item.id
-                            },
-                            onEditClick = { itemToEdit = item },
-                            onDeleteClick = { itemToDelete = item },
-                            onUpdateValue = { delta ->
-                                currentList?.let { list ->
-                                    val updatedValue = (item.currentValue + delta).coerceAtLeast(0)
-                                    viewModel.updateItem(list.id, item.copy(currentValue = updatedValue))
-                                }
-                            }
-                        )
+                            )
                         }
                         HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
                     }
@@ -414,7 +425,10 @@ fun MainScreen(viewModel: MainViewModel = viewModel(factory = MainViewModelFacto
                 onDismiss = { itemToEdit = null },
                 onConfirm = { title, description, targetValue ->
                     currentList?.let { list ->
-                        viewModel.updateItem(list.id, item.copy(title = title, description = description, targetValue = targetValue))
+                        viewModel.updateItem(
+                            list.id,
+                            item.copy(title = title, description = description, targetValue = targetValue)
+                        )
                     }
                     itemToEdit = null
                 }

@@ -114,12 +114,12 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
         viewModelScope.launch {
             val historyMap = items.associate { it.id to (it.currentValue.toFloat() / it.targetValue.coerceAtLeast(1)) }
             repository.addHistoryEntry(listId, historyMap)
-            
+
             // Reset items
             items.forEach { item ->
                 repository.updateItem(listId, item.copy(currentValue = 0))
             }
-            
+
             // Update iteration start time
             val list = allLists.value.find { it.id == listId }
             list?.let {

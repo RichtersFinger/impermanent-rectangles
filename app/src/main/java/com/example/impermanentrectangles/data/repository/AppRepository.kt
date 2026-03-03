@@ -54,11 +54,25 @@ class AppRepository(private val appDao: AppDao) {
     }
 
     suspend fun updateList(list: ItemList) {
-        appDao.updateList(ItemListEntity(id = list.id, name = list.name, description = list.description, iterationStartTime = list.iterationStartTime))
+        appDao.updateList(
+            ItemListEntity(
+                id = list.id,
+                name = list.name,
+                description = list.description,
+                iterationStartTime = list.iterationStartTime
+            )
+        )
     }
 
     suspend fun deleteList(list: ItemList) {
-        appDao.deleteList(ItemListEntity(id = list.id, name = list.name, description = list.description, iterationStartTime = list.iterationStartTime))
+        appDao.deleteList(
+            ItemListEntity(
+                id = list.id,
+                name = list.name,
+                description = list.description,
+                iterationStartTime = list.iterationStartTime
+            )
+        )
     }
 
     suspend fun addItem(listId: String, title: String, description: String, targetValue: Int, position: Int) {
