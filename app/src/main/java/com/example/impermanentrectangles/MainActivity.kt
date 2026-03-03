@@ -4,7 +4,11 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,6 +17,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -172,6 +180,20 @@ fun MainScreen() {
     }
 }
 
+private fun progressToColor(progress: Float): Color {
+    val p = progress.coerceIn(0f, 2f)
+    val red = Color(0xFFF44336)
+    val amber = Color(0xFFFFC107)
+    val green = Color(0xFF4CAF50)
+    val overComplete = Color(0xFF00BCD4)
+
+    return when {
+        p < 0.5f -> lerp(red, amber, p / 0.5f)                  // 0.0..0.5
+        p < 1.0f -> lerp(amber, green, (p - 0.5f) / 0.5f)       // 0.5..1.0
+        else -> lerp(green, overComplete, (p - 1.0f) / 1.0f)            // 1.0..2.0
+    }
+}
+
 @Composable
 fun ListItem(
     item: Item,
@@ -216,19 +238,48 @@ fun ListItem(
                 fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.height(4.dp))
-            val progress = if (item.targetValue > 0) {
-                (item.currentValue.toFloat() / item.targetValue).coerceIn(0f, 1f)
+            val rawProgress = if (item.targetValue > 0) {
+                item.currentValue.toFloat() / item.targetValue
             } else {
                 0f
             }
-            LinearProgressIndicator(
-                progress = { progress },
-                modifier = Modifier.fillMaxWidth()
+            val barProgress = rawProgress.coerceIn(0f, 1f)
+
+            val animatedProgress by animateFloatAsState(
+                targetValue = barProgress,
+                label = "progressAnimation"
             )
-            Text(
-                text = "Progress: ${item.currentValue} / ${item.targetValue}",
-                style = MaterialTheme.typography.bodySmall
+            val progressColor by animateColorAsState(
+                targetValue = progressToColor(rawProgress),
+                label = "colorAnimation"
             )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(24.dp)
+                    .clip(RoundedCornerShape(12.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                LinearProgressIndicator(
+                    progress = { animatedProgress },
+                    modifier = Modifier.fillMaxSize(),
+                    color = progressColor,
+                    trackColor = progressColor.copy(alpha = 0.2f),
+                    gapSize = 0.dp,
+                    strokeCap = StrokeCap.Butt,
+                    drawStopIndicator = {}
+                )
+                Text(
+                    text = "${item.currentValue} / ${item.targetValue}",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.78f))
+                        .padding(horizontal = 8.dp, vertical = 2.dp)
+                )
+            }
             if (isExpanded) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
