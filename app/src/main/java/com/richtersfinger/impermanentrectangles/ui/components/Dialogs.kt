@@ -199,7 +199,12 @@ fun ListInfoDialog(
     totalIterations: Int,
     onDismiss: () -> Unit
 ) {
-    val formatter = remember { java.text.SimpleDateFormat("MMMM dd, yyyy HH:mm", java.util.Locale.getDefault()) }
+    val formatter = remember {
+        java.text.SimpleDateFormat(
+            "MMMM dd, yyyy HH:mm",
+            java.util.Locale.getDefault()
+        )
+    }
     val dateStr = formatter.format(java.util.Date(itemList.iterationStartTime))
 
     AlertDialog(

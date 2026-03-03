@@ -8,7 +8,18 @@ import com.richtersfinger.impermanentrectangles.Item
 import com.richtersfinger.impermanentrectangles.ItemList
 import com.richtersfinger.impermanentrectangles.data.repository.AppRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class MainViewModel(private val repository: AppRepository) : ViewModel() {
@@ -41,7 +52,10 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
         viewModelScope.launch {
             android.util.Log.d("MainViewModel", "Importing database from $uri")
             repository.importDatabase(uri)
-            android.util.Log.d("MainViewModel", "Import database finished, emitting onImportComplete")
+            android.util.Log.d(
+                "MainViewModel",
+                "Import database finished, emitting onImportComplete"
+            )
             _onImportComplete.emit(Unit)
         }
     }
@@ -141,7 +155,9 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
 
     fun startNewIteration(listId: String, items: List<Item>) {
         viewModelScope.launch {
-            val historyMap = items.associate { it.id to (it.currentValue.toFloat() / it.targetValue.coerceAtLeast(1)) }
+            val historyMap = items.associate {
+                it.id to (it.currentValue.toFloat() / it.targetValue.coerceAtLeast(1))
+            }
             repository.addHistoryEntry(listId, historyMap)
 
             // Reset items

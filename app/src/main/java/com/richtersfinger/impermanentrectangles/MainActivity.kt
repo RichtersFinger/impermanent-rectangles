@@ -1,10 +1,14 @@
 package com.richtersfinger.impermanentrectangles
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,17 +17,20 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -32,10 +39,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -43,26 +49,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.material.icons.filled.Done
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.richtersfinger.impermanentrectangles.ui.theme.ImpermanentRectanglesTheme
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.richtersfinger.impermanentrectangles.data.db.AppDatabase
 import com.richtersfinger.impermanentrectangles.data.repository.AppRepository
-import com.richtersfinger.impermanentrectangles.ui.viewmodel.MainViewModel
-import com.richtersfinger.impermanentrectangles.ui.viewmodel.MainViewModelFactory
-import androidx.compose.ui.res.painterResource
-import androidx.compose.foundation.layout.size
-import androidx.compose.ui.res.stringResource
-import android.app.Activity
-import android.content.Context
-import android.content.ContextWrapper
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.platform.LocalContext
 import com.richtersfinger.impermanentrectangles.ui.components.AboutDialog
 import com.richtersfinger.impermanentrectangles.ui.components.AddItemDialog
 import com.richtersfinger.impermanentrectangles.ui.components.AddListDialog
@@ -71,6 +68,9 @@ import com.richtersfinger.impermanentrectangles.ui.components.DeleteListConfirma
 import com.richtersfinger.impermanentrectangles.ui.components.ListInfoDialog
 import com.richtersfinger.impermanentrectangles.ui.components.ListItem
 import com.richtersfinger.impermanentrectangles.ui.components.NewIterationConfirmationDialog
+import com.richtersfinger.impermanentrectangles.ui.theme.ImpermanentRectanglesTheme
+import com.richtersfinger.impermanentrectangles.ui.viewmodel.MainViewModel
+import com.richtersfinger.impermanentrectangles.ui.viewmodel.MainViewModelFactory
 import java.util.UUID
 
 data class Item(
@@ -116,8 +116,8 @@ fun MainScreen(
         factory = MainViewModelFactory(
             AppRepository(
                 AppDatabase.getDatabase(
-                    androidx.compose.ui.platform.LocalContext.current
-                ).appDao(), androidx.compose.ui.platform.LocalContext.current
+                    LocalContext.current
+                ).appDao(), LocalContext.current
             )
         )
     )
@@ -144,7 +144,8 @@ fun MainScreen(
     var showContextMenu by remember { mutableStateOf(false) }
 
     val exportLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("application/octet-stream"), onResult = { uri ->
+        contract = ActivityResultContracts.CreateDocument("application/octet-stream"),
+        onResult = { uri ->
             uri?.let { viewModel.exportDatabase(it) }
         })
 
@@ -197,7 +198,8 @@ fun MainScreen(
                             Icon(Icons.Default.ArrowDropDown, contentDescription = "Select List")
                         }
                         DropdownMenu(
-                            expanded = showListSelectionMenu, onDismissRequest = { showListSelectionMenu = false }) {
+                            expanded = showListSelectionMenu,
+                            onDismissRequest = { showListSelectionMenu = false }) {
                             lists.forEachIndexed { index, itemList ->
                                 DropdownMenuItem(text = { Text(itemList.name) }, onClick = {
                                     viewModel.selectList(index)
@@ -223,7 +225,8 @@ fun MainScreen(
                         Icon(Icons.Default.MoreVert, contentDescription = "List Options")
                     }
                     DropdownMenu(
-                        expanded = showContextMenu, onDismissRequest = { showContextMenu = false }) {
+                        expanded = showContextMenu,
+                        onDismissRequest = { showContextMenu = false }) {
                         currentList?.let {
                             DropdownMenuItem(text = { Text("Show info") }, onClick = {
                                 showContextMenu = false
@@ -270,7 +273,9 @@ fun MainScreen(
         }, floatingActionButtonPosition = androidx.compose.material3.FabPosition.Start
     ) { innerPadding ->
         Column(
-            modifier = Modifier.padding(innerPadding).fillMaxSize()
+            modifier = Modifier
+                .padding(innerPadding)
+                .fillMaxSize()
         ) {
             if (lists.isEmpty()) {
                 Box(
@@ -334,13 +339,21 @@ fun MainScreen(
 
                                     if (dragOffset > threshold && currentDraggingIndex < items.size - 1) {
                                         currentList?.let { list ->
-                                            viewModel.moveItem(list.id, currentDraggingIndex, currentDraggingIndex + 1)
+                                            viewModel.moveItem(
+                                                list.id,
+                                                currentDraggingIndex,
+                                                currentDraggingIndex + 1
+                                            )
                                             draggingItemIndex = currentDraggingIndex + 1
                                             dragOffset -= itemHeight
                                         }
                                     } else if (dragOffset < -threshold && currentDraggingIndex > 0) {
                                         currentList?.let { list ->
-                                            viewModel.moveItem(list.id, currentDraggingIndex, currentDraggingIndex - 1)
+                                            viewModel.moveItem(
+                                                list.id,
+                                                currentDraggingIndex,
+                                                currentDraggingIndex - 1
+                                            )
                                             draggingItemIndex = currentDraggingIndex - 1
                                             dragOffset += itemHeight
                                         }
@@ -351,48 +364,61 @@ fun MainScreen(
                                     dragOffset = 0f
                                 },
                                 onToggleExpand = {
-                                    expandedItemId = if (expandedItemId == item.id) null else item.id
+                                    expandedItemId =
+                                        if (expandedItemId == item.id) null else item.id
                                 },
                                 onEditClick = { itemToEdit = item },
                                 onDeleteClick = { itemToDelete = item },
                                 onUpdateValue = { delta ->
                                     currentList?.let { list ->
-                                        val updatedValue = (item.currentValue + delta).coerceAtLeast(0)
-                                        viewModel.updateItem(list.id, item.copy(currentValue = updatedValue))
+                                        val updatedValue =
+                                            (item.currentValue + delta).coerceAtLeast(0)
+                                        viewModel.updateItem(
+                                            list.id,
+                                            item.copy(currentValue = updatedValue)
+                                        )
                                     }
                                 })
                         }
-                        HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
+                        HorizontalDivider(
+                            thickness = 1.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant
+                        )
                     }
                 }
             }
         }
 
         if (showAboutDialog) {
-            val context = androidx.compose.ui.platform.LocalContext.current
+            val context = LocalContext.current
             val packageInfo = try {
                 context.packageManager.getPackageInfo(context.packageName, 0)
             } catch (e: Exception) {
                 null
             }
             val versionName = packageInfo?.versionName ?: "Unknown"
-            val versionCode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
-                packageInfo?.longVersionCode?.toInt() ?: 0
-            } else {
-                @Suppress("DEPRECATION") packageInfo?.versionCode ?: 0
-            }
+            val versionCode =
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                    packageInfo?.longVersionCode?.toInt() ?: 0
+                } else {
+                    @Suppress("DEPRECATION") packageInfo?.versionCode ?: 0
+                }
             AboutDialog(
-                onDismiss = { showAboutDialog = false }, versionName = versionName, versionCode = versionCode
+                onDismiss = { showAboutDialog = false },
+                versionName = versionName,
+                versionCode = versionCode
             )
         }
 
         if (showAddDialog) {
-            AddItemDialog(onDismiss = { showAddDialog = false }, onConfirm = { title, description, targetValue ->
-                currentList?.let { list ->
-                    viewModel.addItem(list.id, title, description, targetValue)
-                }
-                showAddDialog = false
-            })
+            AddItemDialog(
+                onDismiss = { showAddDialog = false },
+                onConfirm = { title, description, targetValue ->
+                    currentList?.let { list ->
+                        viewModel.addItem(list.id, title, description, targetValue)
+                    }
+                    showAddDialog = false
+                })
         }
 
         itemToEdit?.let { item ->
@@ -404,7 +430,12 @@ fun MainScreen(
                 onConfirm = { title, description, targetValue ->
                     currentList?.let { list ->
                         viewModel.updateItem(
-                            list.id, item.copy(title = title, description = description, targetValue = targetValue)
+                            list.id,
+                            item.copy(
+                                title = title,
+                                description = description,
+                                targetValue = targetValue
+                            )
                         )
                     }
                     itemToEdit = null
@@ -419,10 +450,12 @@ fun MainScreen(
         }
 
         if (showAddListDialog) {
-            AddListDialog(onDismiss = { showAddListDialog = false }, onConfirm = { name, description ->
-                viewModel.addList(name, description)
-                showAddListDialog = false
-            })
+            AddListDialog(
+                onDismiss = { showAddListDialog = false },
+                onConfirm = { name, description ->
+                    viewModel.addList(name, description)
+                    showAddListDialog = false
+                })
         }
 
         listToEdit?.let { list ->
@@ -439,15 +472,20 @@ fun MainScreen(
         if (showListInfoDialog) {
             currentList?.let { list ->
                 ListInfoDialog(
-                    itemList = list, totalIterations = currentHistory.size, onDismiss = { showListInfoDialog = false })
+                    itemList = list,
+                    totalIterations = currentHistory.size,
+                    onDismiss = { showListInfoDialog = false })
             }
         }
 
         listToDelete?.let { list ->
-            DeleteListConfirmationDialog(listName = list.name, onDismiss = { listToDelete = null }, onConfirm = {
-                viewModel.deleteList(list)
-                listToDelete = null
-            })
+            DeleteListConfirmationDialog(
+                listName = list.name,
+                onDismiss = { listToDelete = null },
+                onConfirm = {
+                    viewModel.deleteList(list)
+                    listToDelete = null
+                })
         }
 
         listForNewIteration?.let { list ->

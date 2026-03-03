@@ -235,7 +235,9 @@ fun ListItem(
                             )
                             Spacer(modifier = Modifier.height(6.dp))
                             Row(
-                                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+                                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(
+                                    8.dp
+                                ),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 history.forEach { progress ->

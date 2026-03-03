@@ -5,7 +5,10 @@ import android.net.Uri
 import com.richtersfinger.impermanentrectangles.BuildConfig
 import com.richtersfinger.impermanentrectangles.Item
 import com.richtersfinger.impermanentrectangles.ItemList
-import com.richtersfinger.impermanentrectangles.data.db.*
+import com.richtersfinger.impermanentrectangles.data.db.AppDao
+import com.richtersfinger.impermanentrectangles.data.db.AppDatabase
+import com.richtersfinger.impermanentrectangles.data.db.ItemEntity
+import com.richtersfinger.impermanentrectangles.data.db.ItemListEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -25,7 +28,7 @@ class AppRepository(private val appDao: AppDao, private val context: Context) {
         val dbFile = context.getDatabasePath(AppDatabase.DATABASE_NAME)
         // Ensure WAL is checkpointed
         appDao.checkpoint()
-        
+
         context.contentResolver.openOutputStream(uri)?.use { output ->
             FileInputStream(dbFile).use { input ->
                 input.copyTo(output)
@@ -48,7 +51,7 @@ class AppRepository(private val appDao: AppDao, private val context: Context) {
                 input.copyTo(output)
             }
         }
-        
+
         // Delete WAL/SHM files to ensure consistency
         if (shmFile.exists()) {
             android.util.Log.d("AppRepository", "Deleting SHM file")
@@ -125,7 +128,13 @@ class AppRepository(private val appDao: AppDao, private val context: Context) {
         )
     }
 
-    suspend fun addItem(listId: String, title: String, description: String, targetValue: Int, position: Int) {
+    suspend fun addItem(
+        listId: String,
+        title: String,
+        description: String,
+        targetValue: Int,
+        position: Int
+    ) {
         appDao.insertItem(
             ItemEntity(
                 listId = listId,
