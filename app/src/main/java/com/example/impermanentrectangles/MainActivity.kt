@@ -337,8 +337,8 @@ fun ListItem(
             enter = fadeIn() + scaleIn(),
             exit = fadeOut() + scaleOut(),
             modifier = Modifier
-                .align(Alignment.TopStart)
-                .offset(x = 4.dp, y = 4.dp)
+                .align(Alignment.TopEnd)
+                .offset(x = -4.dp, y = 4.dp)
         ) {
             Icon(
                 imageVector = Icons.Filled.CheckCircle,
