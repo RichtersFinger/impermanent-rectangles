@@ -69,7 +69,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -80,6 +79,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.impermanentrectangles.ui.theme.ImpermanentRectanglesTheme
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.impermanentrectangles.data.db.AppDatabase
+import com.example.impermanentrectangles.data.repository.AppRepository
+import com.example.impermanentrectangles.ui.viewmodel.MainViewModel
+import com.example.impermanentrectangles.ui.viewmodel.MainViewModelFactory
 import java.util.UUID
 
 data class Item(
@@ -93,9 +98,9 @@ data class Item(
 data class ItemList(
     val id: String = UUID.randomUUID().toString(),
     val name: String,
-    val items: MutableList<Item> = mutableStateListOf(),
+    val items: List<Item> = emptyList(),
     val iterationStartTime: Long = System.currentTimeMillis(),
-    val history: MutableList<Map<String, Float>> = mutableStateListOf()
+    val history: List<Map<String, Float>> = emptyList()
 )
 
 class MainActivity : ComponentActivity() {
@@ -112,44 +117,12 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen() {
-    val lists = remember {
-        mutableStateListOf(
-            ItemList(
-                name = "List 1",
-                items = mutableStateListOf(
-                    Item(title = "Item 1", description = "Description for item 1", targetValue = 5),
-                    Item(title = "Item 2", description = "", targetValue = 3),
-                    Item(title = "Item 3", description = "Description for item 3", targetValue = 10)
-                ),
-                history = mutableStateListOf(
-                    mapOf("item_1_id" to 0.2f, "item_2_id" to 0.5f, "item_3_id" to 1.0f),
-                    mapOf("item_1_id" to 0.8f, "item_2_id" to 1.0f, "item_3_id" to 1.2f),
-                    mapOf("item_1_id" to 1.0f, "item_2_id" to 0.3f, "item_3_id" to 0.7f)
-                )
-            )
-        )
-    }
-
-    // For the preview/initial state to work with history, we need stable IDs
-    LaunchedEffect(Unit) {
-        if (lists[0].items.size >= 3) {
-            val item1 = lists[0].items[0]
-            val item2 = lists[0].items[1]
-            val item3 = lists[0].items[2]
-                            
-            val historyEntry1 = mapOf(item1.id to 0.2f, item2.id to 0.5f, item3.id to 1.0f)
-            val historyEntry2 = mapOf(item1.id to 0.8f, item2.id to 1.0f, item3.id to 1.2f)
-            val historyEntry3 = mapOf(item1.id to 1.0f, item2.id to 0.3f, item3.id to 0.7f)
-                            
-            lists[0].history.clear()
-            lists[0].history.addAll(listOf(historyEntry1, historyEntry2, historyEntry3))
-        }
-    }
-
-    var selectedListIndex by remember { mutableIntStateOf(0) }
-    val currentList = lists.getOrNull(selectedListIndex)
-    val items = currentList?.items ?: remember { mutableStateListOf<Item>() }
+fun MainScreen(viewModel: MainViewModel = viewModel(factory = MainViewModelFactory(AppRepository(AppDatabase.getDatabase(androidx.compose.ui.platform.LocalContext.current).appDao())))) {
+    val lists by viewModel.allLists.collectAsStateWithLifecycle()
+    val selectedListIndex by viewModel.selectedListIndex.collectAsStateWithLifecycle()
+    val currentList by viewModel.currentList.collectAsStateWithLifecycle()
+    val items by viewModel.currentItems.collectAsStateWithLifecycle()
+    val currentHistory by viewModel.currentHistory.collectAsStateWithLifecycle()
 
     var expandedItemId by remember { mutableStateOf<String?>(null) }
     var showAddDialog by remember { mutableStateOf(false) }
@@ -185,7 +158,7 @@ fun MainScreen() {
                                 DropdownMenuItem(
                                     text = { Text(itemList.name) },
                                     onClick = {
-                                        selectedListIndex = index
+                                        viewModel.selectList(index)
                                         showListSelectionMenu = false
                                     }
                                 )
@@ -267,17 +240,16 @@ fun MainScreen() {
                     ListItem(
                         item = item,
                         isExpanded = item.id == expandedItemId,
-                        history = currentList?.history?.takeLast(5)?.map { it[item.id] ?: 0f } ?: emptyList(),
+                        history = currentHistory.takeLast(5).map { it[item.id] ?: 0f },
                         onToggleExpand = {
                             expandedItemId = if (expandedItemId == item.id) null else item.id
                         },
                         onEditClick = { itemToEdit = item },
                         onDeleteClick = { itemToDelete = item },
                         onUpdateValue = { delta ->
-                            val index = items.indexOfFirst { it.id == item.id }
-                            if (index != -1) {
-                                val updatedValue = (items[index].currentValue + delta).coerceAtLeast(0)
-                                items[index] = items[index].copy(currentValue = updatedValue)
+                            currentList?.let { list ->
+                                val updatedValue = (item.currentValue + delta).coerceAtLeast(0)
+                                viewModel.updateItem(list.id, item.copy(currentValue = updatedValue))
                             }
                         }
                     )
@@ -290,7 +262,9 @@ fun MainScreen() {
             AddItemDialog(
                 onDismiss = { showAddDialog = false },
                 onConfirm = { title, description, targetValue ->
-                    items.add(Item(title = title, description = description, targetValue = targetValue))
+                    currentList?.let { list ->
+                        viewModel.addItem(list.id, title, description, targetValue)
+                    }
                     showAddDialog = false
                 }
             )
@@ -303,9 +277,8 @@ fun MainScreen() {
                 initialTargetValue = item.targetValue,
                 onDismiss = { itemToEdit = null },
                 onConfirm = { title, description, targetValue ->
-                    val index = items.indexOfFirst { it.id == item.id }
-                    if (index != -1) {
-                        items[index] = item.copy(title = title, description = description, targetValue = targetValue)
+                    currentList?.let { list ->
+                        viewModel.updateItem(list.id, item.copy(title = title, description = description, targetValue = targetValue))
                     }
                     itemToEdit = null
                 }
@@ -317,7 +290,7 @@ fun MainScreen() {
                 item = item,
                 onDismiss = { itemToDelete = null },
                 onConfirm = {
-                    items.remove(item)
+                    viewModel.deleteItem(item.id)
                     itemToDelete = null
                 }
             )
@@ -327,9 +300,7 @@ fun MainScreen() {
             AddListDialog(
                 onDismiss = { showAddListDialog = false },
                 onConfirm = { name ->
-                    val newList = ItemList(name = name)
-                    lists.add(newList)
-                    selectedListIndex = lists.size - 1
+                    viewModel.addList(name)
                     showAddListDialog = false
                 }
             )
@@ -340,10 +311,7 @@ fun MainScreen() {
                 initialName = list.name,
                 onDismiss = { listToEdit = null },
                 onConfirm = { newName ->
-                    val index = lists.indexOfFirst { it.id == list.id }
-                    if (index != -1) {
-                        lists[index] = lists[index].copy(name = newName)
-                    }
+                    viewModel.updateList(list.copy(name = newName))
                     listToEdit = null
                 }
             )
@@ -354,15 +322,7 @@ fun MainScreen() {
                 listName = list.name,
                 onDismiss = { listToDelete = null },
                 onConfirm = {
-                    val index = lists.indexOfFirst { it.id == list.id }
-                    if (index != -1) {
-                        lists.removeAt(index)
-                        if (selectedListIndex >= lists.size && lists.isNotEmpty()) {
-                            selectedListIndex = lists.size - 1
-                        } else if (lists.isEmpty()) {
-                            selectedListIndex = 0
-                        }
-                    }
+                    viewModel.deleteList(list)
                     listToDelete = null
                 }
             )
@@ -373,23 +333,7 @@ fun MainScreen() {
                 listName = list.name,
                 onDismiss = { listForNewIteration = null },
                 onConfirm = {
-                    val index = lists.indexOfFirst { it.id == list.id }
-                    if (index != -1) {
-                        val currentItems = lists[index].items
-                        val percentages = currentItems.associate { it.id to (it.currentValue.toFloat() / it.targetValue.coerceAtLeast(1)) }
-                        
-                        // Update items to reset currentValue
-                        val resetItems = currentItems.map { it.copy(currentValue = 0) }
-                        currentItems.clear()
-                        currentItems.addAll(resetItems)
-
-                        // Update list with new history and start time
-                        val updatedList = lists[index].copy(
-                            iterationStartTime = System.currentTimeMillis()
-                        )
-                        updatedList.history.add(percentages)
-                        lists[index] = updatedList
-                    }
+                    viewModel.startNewIteration(list.id, items)
                     listForNewIteration = null
                 }
             )
@@ -557,7 +501,7 @@ fun ListItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .pointerInput(Unit) {
+                .pointerInput(item) {
                     detectHorizontalDragGestures(
                         onDragEnd = {
                             if (offsetX > threshold) {
@@ -900,6 +844,7 @@ fun DeleteListConfirmationDialog(listName: String, onDismiss: () -> Unit, onConf
 @Composable
 fun MainScreenPreview() {
     ImpermanentRectanglesTheme {
-        MainScreen()
+        // Mock data or use a different preview composable that doesn't rely on ViewModel with DB
+        Text("Preview is disabled because it requires a Database instance.")
     }
 }
