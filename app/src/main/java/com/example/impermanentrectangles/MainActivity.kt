@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -16,8 +17,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -70,6 +75,7 @@ fun MainScreen() {
     }
 
     var showAddDialog by remember { mutableStateOf(false) }
+    var itemToEdit by remember { mutableStateOf<Item?>(null) }
     var itemToDelete by remember { mutableStateOf<Item?>(null) }
 
     Scaffold(
@@ -89,6 +95,7 @@ fun MainScreen() {
                 items(items, key = { it.id }) { item ->
                     ListItem(
                         item = item,
+                        onEditClick = { itemToEdit = item },
                         onDeleteClick = { itemToDelete = item }
                     )
                     HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
@@ -102,6 +109,21 @@ fun MainScreen() {
                 onConfirm = { title, description ->
                     items.add(Item(title = title, description = description))
                     showAddDialog = false
+                }
+            )
+        }
+
+        itemToEdit?.let { item ->
+            AddItemDialog(
+                initialTitle = item.title,
+                initialDescription = item.description,
+                onDismiss = { itemToEdit = null },
+                onConfirm = { title, description ->
+                    val index = items.indexOfFirst { it.id == item.id }
+                    if (index != -1) {
+                        items[index] = item.copy(title = title, description = description)
+                    }
+                    itemToEdit = null
                 }
             )
         }
@@ -120,7 +142,9 @@ fun MainScreen() {
 }
 
 @Composable
-fun ListItem(item: Item, onDeleteClick: () -> Unit) {
+fun ListItem(item: Item, onEditClick: () -> Unit, onDeleteClick: () -> Unit) {
+    var showMenu by remember { mutableStateOf(false) }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -139,24 +163,62 @@ fun ListItem(item: Item, onDeleteClick: () -> Unit) {
                 style = MaterialTheme.typography.bodyMedium
             )
         }
-        IconButton(onClick = onDeleteClick) {
-            Icon(
-                imageVector = Icons.Default.Delete,
-                contentDescription = "Delete Item",
-                tint = MaterialTheme.colorScheme.error
-            )
+        Box {
+            IconButton(onClick = { showMenu = true }) {
+                Icon(
+                    imageVector = Icons.Default.MoreVert,
+                    contentDescription = "More Options"
+                )
+            }
+            DropdownMenu(
+                expanded = showMenu,
+                onDismissRequest = { showMenu = false }
+            ) {
+                DropdownMenuItem(
+                    text = { Text("Edit") },
+                    onClick = {
+                        showMenu = false
+                        onEditClick()
+                    },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Default.Edit,
+                            contentDescription = null
+                        )
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("Remove") },
+                    onClick = {
+                        showMenu = false
+                        onDeleteClick()
+                    },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    }
+                )
+            }
         }
     }
 }
 
 @Composable
-fun AddItemDialog(onDismiss: () -> Unit, onConfirm: (String, String) -> Unit) {
-    var title by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
+fun AddItemDialog(
+    initialTitle: String = "",
+    initialDescription: String = "",
+    onDismiss: () -> Unit,
+    onConfirm: (String, String) -> Unit
+) {
+    var title by remember { mutableStateOf(initialTitle) }
+    var description by remember { mutableStateOf(initialDescription) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add New Item") },
+        title = { Text(if (initialTitle.isEmpty()) "Add New Item" else "Edit Item") },
         text = {
             Column {
                 OutlinedTextField(
@@ -183,7 +245,7 @@ fun AddItemDialog(onDismiss: () -> Unit, onConfirm: (String, String) -> Unit) {
                 },
                 enabled = title.isNotBlank() && description.isNotBlank()
             ) {
-                Text("Add")
+                Text(if (initialTitle.isEmpty()) "Add" else "Save")
             }
         },
         dismissButton = {
