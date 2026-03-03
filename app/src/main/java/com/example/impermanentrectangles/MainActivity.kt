@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
@@ -55,6 +56,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.foundation.layout.offset
 import kotlin.math.roundToInt
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -214,11 +216,17 @@ fun MainScreen(viewModel: MainViewModel = viewModel(factory = MainViewModelFacto
         },
         floatingActionButton = {
             if (currentList != null) {
-                FloatingActionButton(onClick = { showAddDialog = true }) {
+                FloatingActionButton(
+                    onClick = { showAddDialog = true },
+                    modifier = Modifier.alpha(0.75f),
+                    containerColor = Color.LightGray,
+                    elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 8.dp)
+                ) {
                     Icon(Icons.Default.Add, contentDescription = "Add Item")
                 }
             }
-        }
+        },
+        floatingActionButtonPosition = androidx.compose.material3.FabPosition.Start
     ) { innerPadding ->
         Column(
             modifier = Modifier
