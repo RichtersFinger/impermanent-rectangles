@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -74,6 +75,7 @@ fun MainScreen() {
         )
     }
 
+    var expandedItemId by remember { mutableStateOf<String?>(null) }
     var showAddDialog by remember { mutableStateOf(false) }
     var itemToEdit by remember { mutableStateOf<Item?>(null) }
     var itemToDelete by remember { mutableStateOf<Item?>(null) }
@@ -95,6 +97,10 @@ fun MainScreen() {
                 items(items, key = { it.id }) { item ->
                     ListItem(
                         item = item,
+                        isExpanded = item.id == expandedItemId,
+                        onToggleExpand = {
+                            expandedItemId = if (expandedItemId == item.id) null else item.id
+                        },
                         onEditClick = { itemToEdit = item },
                         onDeleteClick = { itemToDelete = item }
                     )
@@ -142,12 +148,19 @@ fun MainScreen() {
 }
 
 @Composable
-fun ListItem(item: Item, onEditClick: () -> Unit, onDeleteClick: () -> Unit) {
+fun ListItem(
+    item: Item,
+    isExpanded: Boolean,
+    onToggleExpand: () -> Unit,
+    onEditClick: () -> Unit,
+    onDeleteClick: () -> Unit
+) {
     var showMenu by remember { mutableStateOf(false) }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clickable { onToggleExpand() }
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -157,11 +170,13 @@ fun ListItem(item: Item, onEditClick: () -> Unit, onDeleteClick: () -> Unit) {
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = item.description,
-                style = MaterialTheme.typography.bodyMedium
-            )
+            if (isExpanded) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = item.description,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
         }
         Box {
             IconButton(onClick = { showMenu = true }) {
