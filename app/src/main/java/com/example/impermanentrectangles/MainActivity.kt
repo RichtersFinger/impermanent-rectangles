@@ -95,6 +95,10 @@ import com.example.impermanentrectangles.data.db.AppDatabase
 import com.example.impermanentrectangles.data.repository.AppRepository
 import com.example.impermanentrectangles.ui.viewmodel.MainViewModel
 import com.example.impermanentrectangles.ui.viewmodel.MainViewModelFactory
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.res.stringResource
+import androidx.compose.foundation.layout.Arrangement
 import java.util.UUID
 
 data class Item(
@@ -144,6 +148,7 @@ fun MainScreen(viewModel: MainViewModel = viewModel(factory = MainViewModelFacto
 
     var showAddListDialog by remember { mutableStateOf(false) }
     var showListInfoDialog by remember { mutableStateOf(false) }
+    var showAboutDialog by remember { mutableStateOf(false) }
     var listToEdit by remember { mutableStateOf<ItemList?>(null) }
     var listToDelete by remember { mutableStateOf<ItemList?>(null) }
     var listForNewIteration by remember { mutableStateOf<ItemList?>(null) }
@@ -159,9 +164,19 @@ fun MainScreen(viewModel: MainViewModel = viewModel(factory = MainViewModelFacto
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
-            if (lists.isNotEmpty()) {
-                TopAppBar(
-                    title = {
+            TopAppBar(
+                navigationIcon = {
+                    IconButton(onClick = { showAboutDialog = true }) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_logo),
+                            contentDescription = "About",
+                            modifier = Modifier.size(32.dp),
+                            tint = Color.Unspecified
+                        )
+                    }
+                },
+                title = {
+                    if (lists.isNotEmpty()) {
                         Box {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -185,68 +200,70 @@ fun MainScreen(viewModel: MainViewModel = viewModel(factory = MainViewModelFacto
                                 }
                             }
                         }
-                    },
-                    actions = {
-                        if (currentList != null) {
-                            IconButton(onClick = { viewModel.toggleReorderMode() }) {
-                                Icon(
-                                    if (isReorderMode) Icons.Default.Done else Icons.Default.List,
-                                    contentDescription = if (isReorderMode) "Exit Reorder Mode" else "Enter Reorder Mode"
-                                )
-                            }
+                    } else {
+                        Text(stringResource(id = R.string.app_name))
+                    }
+                },
+                actions = {
+                    if (currentList != null) {
+                        IconButton(onClick = { viewModel.toggleReorderMode() }) {
+                            Icon(
+                                if (isReorderMode) Icons.Default.Done else Icons.Default.List,
+                                contentDescription = if (isReorderMode) "Exit Reorder Mode" else "Enter Reorder Mode"
+                            )
                         }
-                        Box {
-                            IconButton(onClick = { showContextMenu = true }) {
-                                Icon(Icons.Default.MoreVert, contentDescription = "List Options")
-                            }
-                            DropdownMenu(
-                                expanded = showContextMenu,
-                                onDismissRequest = { showContextMenu = false }
-                            ) {
-                                currentList?.let {
-                                    DropdownMenuItem(
-                                        text = { Text("Show info") },
-                                        onClick = {
-                                            showContextMenu = false
-                                            showListInfoDialog = true
-                                        }
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text("New iteration") },
-                                        onClick = {
-                                            showContextMenu = false
-                                            listForNewIteration = it
-                                        }
-                                    )
-                                }
+                    }
+                    Box {
+                        IconButton(onClick = { showContextMenu = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "List Options")
+                        }
+                        DropdownMenu(
+                            expanded = showContextMenu,
+                            onDismissRequest = { showContextMenu = false }
+                        ) {
+                            currentList?.let {
                                 DropdownMenuItem(
-                                    text = { Text("Add a new list") },
+                                    text = { Text("Show info") },
                                     onClick = {
                                         showContextMenu = false
-                                        showAddListDialog = true
+                                        showListInfoDialog = true
                                     }
                                 )
-                                currentList?.let {
-                                    DropdownMenuItem(
-                                        text = { Text("Edit current list") },
-                                        onClick = {
-                                            showContextMenu = false
-                                            listToEdit = it
-                                        }
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text("Delete current list") },
-                                        onClick = {
-                                            showContextMenu = false
-                                            listToDelete = it
-                                        }
-                                    )
+                                DropdownMenuItem(
+                                    text = { Text("New iteration") },
+                                    onClick = {
+                                        showContextMenu = false
+                                        listForNewIteration = it
+                                    }
+                                )
+                            }
+                            DropdownMenuItem(
+                                text = { Text("Add a new list") },
+                                onClick = {
+                                    showContextMenu = false
+                                    showAddListDialog = true
                                 }
+                            )
+                            currentList?.let {
+                                DropdownMenuItem(
+                                    text = { Text("Edit current list") },
+                                    onClick = {
+                                        showContextMenu = false
+                                        listToEdit = it
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Delete current list") },
+                                    onClick = {
+                                        showContextMenu = false
+                                        listToDelete = it
+                                    }
+                                )
                             }
                         }
                     }
-                )
-            }
+                }
+            )
         },
         floatingActionButton = {
             if (currentList != null && !isReorderMode) {
@@ -354,6 +371,27 @@ fun MainScreen(viewModel: MainViewModel = viewModel(factory = MainViewModelFacto
                     }
                 }
             }
+        }
+
+        if (showAboutDialog) {
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val packageInfo = try {
+                context.packageManager.getPackageInfo(context.packageName, 0)
+            } catch (e: Exception) {
+                null
+            }
+            val versionName = packageInfo?.versionName ?: "Unknown"
+            val versionCode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                packageInfo?.longVersionCode?.toInt() ?: 0
+            } else {
+                @Suppress("DEPRECATION")
+                packageInfo?.versionCode ?: 0
+            }
+            AboutDialog(
+                onDismiss = { showAboutDialog = false },
+                versionName = versionName,
+                versionCode = versionCode
+            )
         }
 
         if (showAddDialog) {
@@ -1028,6 +1066,39 @@ fun ListInfoDialog(
         confirmButton = {
             TextButton(onClick = onDismiss) {
                 Text("Close")
+            }
+        }
+    )
+}
+
+@Composable
+fun AboutDialog(onDismiss: () -> Unit, versionName: String, versionCode: Int) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("OK")
+            }
+        },
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_logo),
+                    contentDescription = null,
+                    modifier = Modifier.size(48.dp),
+                    tint = Color.Unspecified
+                )
+                Text(text = stringResource(id = R.string.app_name))
+            }
+        },
+        text = {
+            Column {
+                Text(text = "Version: $versionName")
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(text = "Manage your goals with colorful progress bars.")
             }
         }
     )
