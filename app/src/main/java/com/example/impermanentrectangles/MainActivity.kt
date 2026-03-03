@@ -159,92 +159,94 @@ fun MainScreen(viewModel: MainViewModel = viewModel(factory = MainViewModelFacto
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
-            TopAppBar(
-                title = {
-                    Box {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.clickable { showListSelectionMenu = true }
-                        ) {
-                            Text(currentList?.name ?: "No List Selected")
-                            Icon(Icons.Default.ArrowDropDown, contentDescription = "Select List")
-                        }
-                        DropdownMenu(
-                            expanded = showListSelectionMenu,
-                            onDismissRequest = { showListSelectionMenu = false }
-                        ) {
-                            lists.forEachIndexed { index, itemList ->
-                                DropdownMenuItem(
-                                    text = { Text(itemList.name) },
-                                    onClick = {
-                                        viewModel.selectList(index)
-                                        showListSelectionMenu = false
-                                    }
-                                )
+            if (lists.isNotEmpty()) {
+                TopAppBar(
+                    title = {
+                        Box {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.clickable { showListSelectionMenu = true }
+                            ) {
+                                Text(currentList?.name ?: "No List Selected")
+                                Icon(Icons.Default.ArrowDropDown, contentDescription = "Select List")
                             }
-                        }
-                    }
-                },
-                actions = {
-                    if (currentList != null) {
-                        IconButton(onClick = { viewModel.toggleReorderMode() }) {
-                            Icon(
-                                if (isReorderMode) Icons.Default.Done else Icons.Default.List,
-                                contentDescription = if (isReorderMode) "Exit Reorder Mode" else "Enter Reorder Mode"
-                            )
-                        }
-                    }
-                    Box {
-                        IconButton(onClick = { showContextMenu = true }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = "List Options")
-                        }
-                        DropdownMenu(
-                            expanded = showContextMenu,
-                            onDismissRequest = { showContextMenu = false }
-                        ) {
-                            currentList?.let {
-                                DropdownMenuItem(
-                                    text = { Text("Show info") },
-                                    onClick = {
-                                        showContextMenu = false
-                                        showListInfoDialog = true
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("New iteration") },
-                                    onClick = {
-                                        showContextMenu = false
-                                        listForNewIteration = it
-                                    }
-                                )
-                            }
-                            DropdownMenuItem(
-                                text = { Text("Add a new list") },
-                                onClick = {
-                                    showContextMenu = false
-                                    showAddListDialog = true
+                            DropdownMenu(
+                                expanded = showListSelectionMenu,
+                                onDismissRequest = { showListSelectionMenu = false }
+                            ) {
+                                lists.forEachIndexed { index, itemList ->
+                                    DropdownMenuItem(
+                                        text = { Text(itemList.name) },
+                                        onClick = {
+                                            viewModel.selectList(index)
+                                            showListSelectionMenu = false
+                                        }
+                                    )
                                 }
-                            )
-                            currentList?.let {
-                                DropdownMenuItem(
-                                    text = { Text("Edit current list") },
-                                    onClick = {
-                                        showContextMenu = false
-                                        listToEdit = it
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Delete current list") },
-                                    onClick = {
-                                        showContextMenu = false
-                                        listToDelete = it
-                                    }
+                            }
+                        }
+                    },
+                    actions = {
+                        if (currentList != null) {
+                            IconButton(onClick = { viewModel.toggleReorderMode() }) {
+                                Icon(
+                                    if (isReorderMode) Icons.Default.Done else Icons.Default.List,
+                                    contentDescription = if (isReorderMode) "Exit Reorder Mode" else "Enter Reorder Mode"
                                 )
                             }
                         }
+                        Box {
+                            IconButton(onClick = { showContextMenu = true }) {
+                                Icon(Icons.Default.MoreVert, contentDescription = "List Options")
+                            }
+                            DropdownMenu(
+                                expanded = showContextMenu,
+                                onDismissRequest = { showContextMenu = false }
+                            ) {
+                                currentList?.let {
+                                    DropdownMenuItem(
+                                        text = { Text("Show info") },
+                                        onClick = {
+                                            showContextMenu = false
+                                            showListInfoDialog = true
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("New iteration") },
+                                        onClick = {
+                                            showContextMenu = false
+                                            listForNewIteration = it
+                                        }
+                                    )
+                                }
+                                DropdownMenuItem(
+                                    text = { Text("Add a new list") },
+                                    onClick = {
+                                        showContextMenu = false
+                                        showAddListDialog = true
+                                    }
+                                )
+                                currentList?.let {
+                                    DropdownMenuItem(
+                                        text = { Text("Edit current list") },
+                                        onClick = {
+                                            showContextMenu = false
+                                            listToEdit = it
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Delete current list") },
+                                        onClick = {
+                                            showContextMenu = false
+                                            listToDelete = it
+                                        }
+                                    )
+                                }
+                            }
+                        }
                     }
-                }
-            )
+                )
+            }
         },
         floatingActionButton = {
             if (currentList != null && !isReorderMode) {
@@ -265,63 +267,91 @@ fun MainScreen(viewModel: MainViewModel = viewModel(factory = MainViewModelFacto
                 .padding(innerPadding)
                 .fillMaxSize()
         ) {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                state = lazyListState
-            ) {
-                items(items, key = { it.id }) { item ->
-                    val index = items.indexOfFirst { it.id == item.id }
-                    Box(modifier = Modifier.animateItem()) {
-                        ListItem(
-                        item = item,
-                        isExpanded = item.id == expandedItemId,
-                        history = currentHistory.takeLast(5).map { it[item.id] ?: 0f },
-                        isDragging = index == draggingItemIndex,
-                        isReorderMode = isReorderMode,
-                        onDragStart = {
-                            draggingItemIndex = index
-                            dragOffset = 0f
-                        },
-                        onDrag = { delta ->
-                            dragOffset += delta
-                            val currentDraggingIndex = draggingItemIndex ?: return@ListItem
-                            
-                            val itemLayoutInfo = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == item.id }
-                            val itemHeight = itemLayoutInfo?.size ?: 100
-                            val threshold = itemHeight / 2
-                            
-                            if (dragOffset > threshold && currentDraggingIndex < items.size - 1) {
-                                currentList?.let { list ->
-                                    viewModel.moveItem(list.id, currentDraggingIndex, currentDraggingIndex + 1)
-                                    draggingItemIndex = currentDraggingIndex + 1
-                                    dragOffset -= itemHeight
-                                }
-                            } else if (dragOffset < -threshold && currentDraggingIndex > 0) {
-                                currentList?.let { list ->
-                                    viewModel.moveItem(list.id, currentDraggingIndex, currentDraggingIndex - 1)
-                                    draggingItemIndex = currentDraggingIndex - 1
-                                    dragOffset += itemHeight
-                                }
-                            }
-                        },
-                        onDragEnd = {
-                            draggingItemIndex = null
-                            dragOffset = 0f
-                        },
-                        onToggleExpand = {
-                            expandedItemId = if (expandedItemId == item.id) null else item.id
-                        },
-                        onEditClick = { itemToEdit = item },
-                        onDeleteClick = { itemToDelete = item },
-                        onUpdateValue = { delta ->
-                            currentList?.let { list ->
-                                val updatedValue = (item.currentValue + delta).coerceAtLeast(0)
-                                viewModel.updateItem(list.id, item.copy(currentValue = updatedValue))
-                            }
+            if (lists.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("No lists found", style = MaterialTheme.typography.headlineSmall)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(onClick = { showAddListDialog = true }) {
+                            Text("Create your first list")
                         }
-                    )
                     }
-                    HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
+                }
+            } else if (items.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("This list is empty", style = MaterialTheme.typography.headlineSmall)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(onClick = { showAddDialog = true }) {
+                            Text("Add an item")
+                        }
+                    }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    state = lazyListState
+                ) {
+                    items(items, key = { it.id }) { item ->
+                        val index = items.indexOfFirst { it.id == item.id }
+                        Box(modifier = Modifier.animateItem()) {
+                            ListItem(
+                            item = item,
+                            isExpanded = item.id == expandedItemId,
+                            history = currentHistory.takeLast(5).map { it[item.id] ?: 0f },
+                            isDragging = index == draggingItemIndex,
+                            isReorderMode = isReorderMode,
+                            onDragStart = {
+                                draggingItemIndex = index
+                                dragOffset = 0f
+                            },
+                            onDrag = { delta ->
+                                dragOffset += delta
+                                val currentDraggingIndex = draggingItemIndex ?: return@ListItem
+                                
+                                val itemLayoutInfo = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == item.id }
+                                val itemHeight = itemLayoutInfo?.size ?: 100
+                                val threshold = itemHeight / 2
+                                
+                                if (dragOffset > threshold && currentDraggingIndex < items.size - 1) {
+                                    currentList?.let { list ->
+                                        viewModel.moveItem(list.id, currentDraggingIndex, currentDraggingIndex + 1)
+                                        draggingItemIndex = currentDraggingIndex + 1
+                                        dragOffset -= itemHeight
+                                    }
+                                } else if (dragOffset < -threshold && currentDraggingIndex > 0) {
+                                    currentList?.let { list ->
+                                        viewModel.moveItem(list.id, currentDraggingIndex, currentDraggingIndex - 1)
+                                        draggingItemIndex = currentDraggingIndex - 1
+                                        dragOffset += itemHeight
+                                    }
+                                }
+                            },
+                            onDragEnd = {
+                                draggingItemIndex = null
+                                dragOffset = 0f
+                            },
+                            onToggleExpand = {
+                                expandedItemId = if (expandedItemId == item.id) null else item.id
+                            },
+                            onEditClick = { itemToEdit = item },
+                            onDeleteClick = { itemToDelete = item },
+                            onUpdateValue = { delta ->
+                                currentList?.let { list ->
+                                    val updatedValue = (item.currentValue + delta).coerceAtLeast(0)
+                                    viewModel.updateItem(list.id, item.copy(currentValue = updatedValue))
+                                }
+                            }
+                        )
+                        }
+                        HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
+                    }
                 }
             }
         }
@@ -749,6 +779,14 @@ fun ListItem(
                                 }
                             }
                         }
+                    } else {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "No history available yet",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.outline,
+                            modifier = Modifier.alpha(0.6f)
+                        )
                     }
                 }
             }
