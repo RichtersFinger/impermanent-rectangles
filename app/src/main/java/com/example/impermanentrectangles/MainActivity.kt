@@ -25,6 +25,19 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.foundation.layout.offset
+import kotlin.math.roundToInt
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -35,6 +48,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -50,7 +65,9 @@ import java.util.UUID
 data class Item(
     val id: String = UUID.randomUUID().toString(),
     val title: String,
-    val description: String
+    val description: String,
+    val currentValue: Int = 0,
+    val targetValue: Int = 3
 )
 
 class MainActivity : ComponentActivity() {
@@ -69,9 +86,9 @@ class MainActivity : ComponentActivity() {
 fun MainScreen() {
     val items = remember {
         mutableStateListOf(
-            Item(title = "Item 1", description = "Description for item 1"),
-            Item(title = "Item 2", description = ""),
-            Item(title = "Item 3", description = "Description for item 3")
+            Item(title = "Item 1", description = "Description for item 1", targetValue = 5),
+            Item(title = "Item 2", description = "", targetValue = 3),
+            Item(title = "Item 3", description = "Description for item 3", targetValue = 10)
         )
     }
 
@@ -102,7 +119,14 @@ fun MainScreen() {
                             expandedItemId = if (expandedItemId == item.id) null else item.id
                         },
                         onEditClick = { itemToEdit = item },
-                        onDeleteClick = { itemToDelete = item }
+                        onDeleteClick = { itemToDelete = item },
+                        onUpdateValue = { delta ->
+                            val index = items.indexOfFirst { it.id == item.id }
+                            if (index != -1) {
+                                val updatedValue = (items[index].currentValue + delta).coerceAtLeast(0)
+                                items[index] = items[index].copy(currentValue = updatedValue)
+                            }
+                        }
                     )
                     HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
                 }
@@ -112,8 +136,8 @@ fun MainScreen() {
         if (showAddDialog) {
             AddItemDialog(
                 onDismiss = { showAddDialog = false },
-                onConfirm = { title, description ->
-                    items.add(Item(title = title, description = description))
+                onConfirm = { title, description, targetValue ->
+                    items.add(Item(title = title, description = description, targetValue = targetValue))
                     showAddDialog = false
                 }
             )
@@ -123,11 +147,12 @@ fun MainScreen() {
             AddItemDialog(
                 initialTitle = item.title,
                 initialDescription = item.description,
+                initialTargetValue = item.targetValue,
                 onDismiss = { itemToEdit = null },
-                onConfirm = { title, description ->
+                onConfirm = { title, description, targetValue ->
                     val index = items.indexOfFirst { it.id == item.id }
                     if (index != -1) {
-                        items[index] = item.copy(title = title, description = description)
+                        items[index] = item.copy(title = title, description = description, targetValue = targetValue)
                     }
                     itemToEdit = null
                 }
@@ -153,13 +178,33 @@ fun ListItem(
     isExpanded: Boolean,
     onToggleExpand: () -> Unit,
     onEditClick: () -> Unit,
-    onDeleteClick: () -> Unit
+    onDeleteClick: () -> Unit,
+    onUpdateValue: (Int) -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
+    var offsetX by remember { mutableFloatStateOf(0f) }
+    val threshold = 150f
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .pointerInput(Unit) {
+                detectHorizontalDragGestures(
+                    onDragEnd = {
+                        if (offsetX > threshold) {
+                            onUpdateValue(+1)
+                        } else if (offsetX < -threshold) {
+                            onUpdateValue(-1)
+                        }
+                        offsetX = 0f
+                    },
+                    onHorizontalDrag = { change, dragAmount ->
+                        change.consume()
+                        offsetX += dragAmount
+                    }
+                )
+            }
+            .offset { IntOffset(offsetX.roundToInt(), 0) }
             .clickable { onToggleExpand() }
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -169,6 +214,20 @@ fun ListItem(
                 text = item.title,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            val progress = if (item.targetValue > 0) {
+                (item.currentValue.toFloat() / item.targetValue).coerceIn(0f, 1f)
+            } else {
+                0f
+            }
+            LinearProgressIndicator(
+                progress = { progress },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Text(
+                text = "Progress: ${item.currentValue} / ${item.targetValue}",
+                style = MaterialTheme.typography.bodySmall
             )
             if (isExpanded) {
                 Spacer(modifier = Modifier.height(4.dp))
@@ -226,11 +285,13 @@ fun ListItem(
 fun AddItemDialog(
     initialTitle: String = "",
     initialDescription: String = "",
+    initialTargetValue: Int = 3,
     onDismiss: () -> Unit,
-    onConfirm: (String, String) -> Unit
+    onConfirm: (String, String, Int) -> Unit
 ) {
     var title by remember { mutableStateOf(initialTitle) }
     var description by remember { mutableStateOf(initialDescription) }
+    var targetValue by remember { mutableStateOf(initialTargetValue.toString()) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -250,13 +311,26 @@ fun AddItemDialog(
                     label = { Text("Description") },
                     modifier = Modifier.fillMaxWidth()
                 )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = targetValue,
+                    onValueChange = {
+                        if (it.isEmpty() || it.all { char -> char.isDigit() }) {
+                            targetValue = it
+                        }
+                    },
+                    label = { Text("Target Value") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         },
         confirmButton = {
             Button(
                 onClick = {
                     if (title.isNotBlank()) {
-                        onConfirm(title, description.trim())
+                        val target = targetValue.toIntOrNull() ?: 3
+                        onConfirm(title, description.trim(), target)
                     }
                 },
                 enabled = title.isNotBlank()
